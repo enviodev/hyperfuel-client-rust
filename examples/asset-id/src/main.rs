@@ -1,7 +1,7 @@
 use std::num::NonZeroU64;
 
 use hyperfuel_client::{Client, Config};
-use hyperfuel_net_types::{FieldSelection, InputSelection, Query};
+use hyperfuel_net_types::Query;
 use url::Url;
 
 #[tokio::main]

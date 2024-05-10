@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
-use serde::{Deserialize, Serialize};
 use hyperfuel_format::{FixedSizeData, Hash};
+use serde::{Deserialize, Serialize};
 
 pub type Sighash = FixedSizeData<4>;
 

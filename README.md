@@ -1,5 +1,3 @@
-# WIP
-
 # hyperfuel-client-rust
 Rust crate for [Envio's](https://envio.dev/) HyperFuel client
 

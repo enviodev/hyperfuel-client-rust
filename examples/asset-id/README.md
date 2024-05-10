@@ -1,0 +1,1 @@
+We query from blocks 7980000 (inclusive) to 7980100 (exclusive) for all `Inputs` where the address `0x0000000000000000000000000000000000000000000000000000000000000000` matches on the `asset_id` field.

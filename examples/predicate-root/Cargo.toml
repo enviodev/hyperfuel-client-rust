@@ -1,0 +1,14 @@
+[package]
+name = "predicate-root"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hex-literal = "0.4.1"
+hyperfuel-client = { path = "../../hyperfuel-client" }
+hyperfuel-net-types = { path = "../../hyperfuel-net-types" }
+maplit = "1.0.2"
+tokio = { version = "1", features = ["full"] }
+url = "2.5.0"

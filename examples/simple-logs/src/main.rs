@@ -1,21 +1,3 @@
-# WIP
-
-# hyperfuel-client-rust
-Rust crate for [Envio's](https://envio.dev/) HyperFuel client
-
-`$ cargo add hyperfuel-client`
-
-### Dependencies
-
-Need to install capnproto tool in order to build the library. It can be installed like this on Ubuntu, Windows and MacOS in order:
-```bash
-sudo apt-get install -y capnproto libcapnp-dev
-choco install capnproto
-brew install capnp
-```
-
-# quickstart example
-```rust
 use std::num::NonZeroU64;
 
 use hyperfuel_client::{Client, Config};
@@ -43,6 +25,3 @@ async fn main() {
 
     println!("logs: {:?}", logs.data);
 }
-```
-
-### more examples in `examples/`

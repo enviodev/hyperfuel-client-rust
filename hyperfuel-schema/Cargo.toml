@@ -1,0 +1,12 @@
+[package]
+name = "hyperfuel-schema-fuel"
+version = "0.0.2"
+edition = "2021"
+description = "schema utilities for hyperfuel"
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+arrow2 = { version = "0.18", default_features = false, features = [
+    "compute_concatenate",
+] }

@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+
+members = [
+    "hyperfuel-client",
+    "hyperfuel-format",
+    "hyperfuel-net-types",
+    "hyperfuel-schema",
+]

@@ -80,7 +80,7 @@ pub fn transaction() -> SchemaRef {
         Field::new("subsection_index", DataType::UInt64, true), // new
         Field::new("subsections_number", DataType::UInt64, true), // new
         // vec
-        Field::new("storage_slots", DataType::Binary, true), // new
+        // Field::new("storage_slots", DataType::Binary, true), // new
         // vec
         Field::new("proof_set", DataType::Binary, true), // new
         Field::new(

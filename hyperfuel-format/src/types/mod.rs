@@ -89,7 +89,7 @@ pub struct Transaction {
     /// A pointer to the TX whose output is being spent for a contract used for the transaction input.
     pub input_contract_tx_pointer_tx_index: Option<UInt>,
     /// The contract id for a contract used for the transaction input.
-    pub input_contract_id: Option<ContractId>,
+    pub input_contract: Option<ContractId>,
     pub policies_tip: Option<UInt>,
     pub policies_witness_limit: Option<UInt>,
     pub policies_maturity: Option<UInt>,
@@ -115,7 +115,7 @@ pub struct Transaction {
     /// The state root of contract after transaction execution from a transaction that changed the state of a contract.
     pub output_contract_state_root: Option<Hash>,
     /// An array of witnesses.
-    pub witnesses: Option<Data>,
+    pub witnesses: Option<Data>, // TODO: only first one, but this is a vec
     /// The root of the receipts.
     pub receipts_root: Option<Hash>,
     /// The status type of the transaction.
@@ -134,8 +134,8 @@ pub struct Transaction {
     pub bytecode_witness_index: Option<UInt>,
     pub bytecode_root: Option<Hash>,
     pub subsection_index: Option<UInt>,
-    pub subsection_number: Option<UInt>,
-    pub proof_set: Option<Vec<Data>>,
+    pub subsections_number: Option<UInt>,
+    pub proof_set: Option<Data>, // TODO: only first one, but this is a vec
     pub consensus_parameters_upgrade_purpose_witness_index: Option<UInt>,
     pub consensus_parameters_upgrade_purpose_checksum: Option<Data>,
     pub state_transition_upgrade_purpose_root: Option<Hash>,

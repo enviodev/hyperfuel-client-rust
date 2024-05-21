@@ -49,7 +49,7 @@ pub fn transaction() -> SchemaRef {
             true,
         ),
         Field::new("input_contract_tx_pointer_tx_index", DataType::UInt64, true),
-        Field::new("input_contract_id", DataType::Binary, true), // renamed
+        Field::new("input_contract", DataType::Binary, true),
         // Field::new("gas_price", DataType::UInt64, true), // removed
         Field::new("policies_tip", DataType::UInt64, true), // new
         Field::new("policies_witness_limit", DataType::UInt64, true), // new

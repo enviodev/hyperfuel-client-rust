@@ -16,10 +16,13 @@ pub fn block_header() -> SchemaRef {
     Schema::from(vec![
         Field::new("id", DataType::Binary, false),
         Field::new("da_height", DataType::UInt64, false),
+        Field::new("consensus_parameters_version", DataType::UInt64, false), // new
+        Field::new("state_transition_bytecode_version", DataType::UInt64, false), // new
         Field::new("transactions_count", DataType::UInt64, false),
         Field::new("message_receipt_count", DataType::UInt64, false),
         Field::new("transactions_root", DataType::Binary, false),
-        Field::new("message_receipt_root", DataType::Binary, false),
+        Field::new("message_outbox_root", DataType::Binary, false), // renamed
+        Field::new("event_inbox_root", DataType::Binary, false),    // new
         Field::new("height", DataType::UInt64, false),
         Field::new("prev_root", DataType::Binary, false),
         Field::new("time", DataType::Int64, false),
@@ -47,14 +50,19 @@ pub fn transaction() -> SchemaRef {
         ),
         Field::new("input_contract_tx_pointer_tx_index", DataType::UInt64, true),
         Field::new("input_contract", DataType::Binary, true),
-        Field::new("gas_price", DataType::UInt64, true),
-        Field::new("gas_limit", DataType::UInt64, true),
+        // Field::new("gas_price", DataType::UInt64, true), // removed
+        Field::new("policies_tip", DataType::UInt64, true), // new
+        Field::new("policies_witness_limit", DataType::UInt64, true), // new
+        Field::new("policies_maturity", DataType::UInt64, true), // new
+        Field::new("policies_max_fee", DataType::UInt64, true), // new
+        Field::new("script_gas_limit", DataType::UInt64, true), // renamed
         Field::new("maturity", DataType::UInt64, true),
         Field::new("mint_amount", DataType::UInt64, true),
         Field::new("mint_asset_id", DataType::Binary, true),
+        Field::new("mint_gas_price", DataType::UInt64, true), // new
         Field::new("tx_pointer_block_height", DataType::UInt64, true),
         Field::new("tx_pointer_tx_index", DataType::UInt64, true),
-        Field::new("tx_type", DataType::UInt8, false),
+        Field::new("tx_type", DataType::UInt8, false), // not changes, but new tx_types (upgrade, upload)
         Field::new("output_contract_input_index", DataType::UInt64, true),
         Field::new("output_contract_balance_root", DataType::Binary, true),
         Field::new("output_contract_state_root", DataType::Binary, true),
@@ -67,7 +75,29 @@ pub fn transaction() -> SchemaRef {
         Field::new("script", DataType::Binary, true),
         Field::new("script_data", DataType::Binary, true),
         Field::new("bytecode_witness_index", DataType::UInt64, true),
-        Field::new("bytecode_length", DataType::UInt64, true),
+        // Field::new("bytecode_length", DataType::UInt64, true), // removed
+        Field::new("bytecode_root", DataType::Binary, true), // new
+        Field::new("subsection_index", DataType::UInt64, true), // new
+        Field::new("subsections_number", DataType::UInt64, true), // new
+        // vec
+        // Field::new("storage_slots", DataType::Binary, true), // new
+        // vec
+        Field::new("proof_set", DataType::Binary, true), // new
+        Field::new(
+            "consensus_parameters_upgrade_purpose_witness_index",
+            DataType::UInt64,
+            true,
+        ), // new
+        Field::new(
+            "consensus_parameters_upgrade_purpose_checksum",
+            DataType::Binary,
+            true,
+        ), // new
+        Field::new(
+            "state_transition_upgrade_purpose_root",
+            DataType::Binary,
+            true,
+        ), // new
         Field::new("salt", DataType::Binary, true),
     ])
     .into()

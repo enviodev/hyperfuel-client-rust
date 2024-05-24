@@ -89,6 +89,18 @@ impl FromArrow for BlockHeader {
             }
         }
 
+        if let Ok(col) = batch.column::<UInt64Array>("consensus_parameters_version") {
+            for (target, &val) in out.iter_mut().zip(col.values_iter()) {
+                target.consensus_parameters_version = val.into();
+            }
+        }
+
+        if let Ok(col) = batch.column::<UInt64Array>("state_transition_bytecode_version") {
+            for (target, &val) in out.iter_mut().zip(col.values_iter()) {
+                target.state_transition_bytecode_version = val.into();
+            }
+        }
+
         if let Ok(col) = batch.column::<UInt64Array>("transactions_count") {
             for (target, val) in out.iter_mut().zip(col.values_iter()) {
                 target.transactions_count = val.to_be_bytes().into();
@@ -107,9 +119,15 @@ impl FromArrow for BlockHeader {
             }
         }
 
-        if let Ok(col) = batch.column::<BinaryArray<i32>>("message_receipt_root") {
+        if let Ok(col) = batch.column::<BinaryArray<i32>>("message_outbox_root") {
             for (target, val) in out.iter_mut().zip(col.values_iter()) {
-                target.message_receipt_root = val.try_into().unwrap();
+                target.message_outbox_root = val.try_into().unwrap();
+            }
+        }
+
+        if let Ok(col) = batch.column::<BinaryArray<i32>>("event_inbox_root") {
+            for (target, val) in out.iter_mut().zip(col.values_iter()) {
+                target.event_inbox_root = val.try_into().unwrap();
             }
         }
 
@@ -213,15 +231,33 @@ impl FromArrow for Transaction {
             }
         }
 
-        if let Ok(col) = batch.column::<UInt64Array>("gas_price") {
+        if let Ok(col) = batch.column::<UInt64Array>("policies_tip") {
             for (target, val) in out.iter_mut().zip(col.iter()) {
-                target.gas_price = val.copied().map(|n| n.into());
+                target.policies_tip = val.copied().map(|n| n.into());
             }
         }
 
-        if let Ok(col) = batch.column::<UInt64Array>("gas_limit") {
+        if let Ok(col) = batch.column::<UInt64Array>("policies_witness_limit") {
             for (target, val) in out.iter_mut().zip(col.iter()) {
-                target.gas_limit = val.copied().map(|n| n.into());
+                target.policies_witness_limit = val.copied().map(|n| n.into());
+            }
+        }
+
+        if let Ok(col) = batch.column::<UInt64Array>("policies_maturity") {
+            for (target, val) in out.iter_mut().zip(col.iter()) {
+                target.policies_maturity = val.copied().map(|n| n.into());
+            }
+        }
+
+        if let Ok(col) = batch.column::<UInt64Array>("policies_max_fee") {
+            for (target, val) in out.iter_mut().zip(col.iter()) {
+                target.policies_max_fee = val.copied().map(|n| n.into());
+            }
+        }
+
+        if let Ok(col) = batch.column::<UInt64Array>("script_gas_limit") {
+            for (target, val) in out.iter_mut().zip(col.iter()) {
+                target.script_gas_limit = val.copied().map(|n| n.into());
             }
         }
 
@@ -240,6 +276,12 @@ impl FromArrow for Transaction {
         if let Ok(col) = batch.column::<BinaryArray<i32>>("mint_asset_id") {
             for (target, val) in out.iter_mut().zip(col.iter()) {
                 target.mint_asset_id = val.map(|v| v.try_into().unwrap());
+            }
+        }
+
+        if let Ok(col) = batch.column::<UInt64Array>("mint_gas_price") {
+            for (target, val) in out.iter_mut().zip(col.iter()) {
+                target.mint_gas_price = val.copied().map(|n| n.into());
             }
         }
 
@@ -327,9 +369,50 @@ impl FromArrow for Transaction {
             }
         }
 
-        if let Ok(col) = batch.column::<UInt64Array>("bytecode_length") {
+        if let Ok(col) = batch.column::<BinaryArray<i32>>("bytecode_root") {
             for (target, val) in out.iter_mut().zip(col.iter()) {
-                target.bytecode_length = val.copied().map(|t| t.into());
+                target.bytecode_root = val.map(|v| v.try_into().unwrap());
+            }
+        }
+
+        if let Ok(col) = batch.column::<UInt64Array>("subsection_index") {
+            for (target, val) in out.iter_mut().zip(col.iter()) {
+                target.subsection_index = val.copied().map(|t| t.into());
+            }
+        }
+
+        if let Ok(col) = batch.column::<UInt64Array>("subsections_number") {
+            for (target, val) in out.iter_mut().zip(col.iter()) {
+                target.subsections_number = val.copied().map(|t| t.into());
+            }
+        }
+
+        if let Ok(col) = batch.column::<BinaryArray<i32>>("proof_set") {
+            for (target, val) in out.iter_mut().zip(col.iter()) {
+                target.proof_set = val.map(|v| v.into());
+            }
+        }
+
+        if let Ok(col) =
+            batch.column::<UInt64Array>("consensus_parameters_upgrade_purpose_witness_index")
+        {
+            for (target, val) in out.iter_mut().zip(col.iter()) {
+                target.consensus_parameters_upgrade_purpose_witness_index =
+                    val.copied().map(|t| t.into());
+            }
+        }
+
+        if let Ok(col) =
+            batch.column::<BinaryArray<i32>>("consensus_parameters_upgrade_purpose_checksum")
+        {
+            for (target, val) in out.iter_mut().zip(col.iter()) {
+                target.consensus_parameters_upgrade_purpose_checksum = val.map(|v| v.into());
+            }
+        }
+
+        if let Ok(col) = batch.column::<BinaryArray<i32>>("state_transition_upgrade_purpose_root") {
+            for (target, val) in out.iter_mut().zip(col.iter()) {
+                target.state_transition_upgrade_purpose_root = val.map(|v| v.try_into().unwrap());
             }
         }
 

@@ -7,9 +7,8 @@ use anyhow::{anyhow, Context, Result};
 use arrow2::{array::Array, chunk::Chunk};
 
 use filter::filter_out_unselected_data;
-use format::{Transaction, TransactionStatus};
 use from_arrow::{receipts_from_arrow_data, typed_data_from_arrow_data, FromArrow};
-use hyperfuel_format::Hash;
+use hyperfuel_format::{Hash, Transaction, TransactionStatus};
 use hyperfuel_net_types::{
     hyperfuel_net_types_capnp, ArchiveHeight, FieldSelection, Query, ReceiptSelection,
 };
@@ -23,7 +22,6 @@ mod transport_format;
 mod types;
 
 pub use config::Config;
-pub use hyperfuel_format as format;
 pub use transport_format::{ArrowIpc, TransportFormat};
 pub use types::{
     ArrowBatch, LogContext, LogResponse, QueryResponse, QueryResponseData, QueryResponseDataTyped,

@@ -13,6 +13,8 @@ pub enum TransactionType {
     Script,
     Create,
     Mint,
+    Upgrade,
+    Upload,
 }
 
 impl TransactionType {
@@ -21,6 +23,8 @@ impl TransactionType {
             0 => Ok(Self::Script),
             1 => Ok(Self::Create),
             2 => Ok(Self::Mint),
+            3 => Ok(Self::Upgrade),
+            4 => Ok(Self::Upload),
             _ => Err(Error::UnknownTransactionType(val.to_string())),
         }
     }
@@ -30,6 +34,8 @@ impl TransactionType {
             Self::Script => 0,
             Self::Create => 1,
             Self::Mint => 2,
+            Self::Upgrade => 3,
+            Self::Upload => 4,
         }
     }
 }
@@ -42,6 +48,8 @@ impl FromStr for TransactionType {
             "0x0" => Ok(Self::Script),
             "0x1" => Ok(Self::Create),
             "0x2" => Ok(Self::Mint),
+            "0x3" => Ok(Self::Upgrade),
+            "0x4" => Ok(Self::Upload),
             _ => Err(Error::UnknownTransactionType(s.to_owned())),
         }
     }
@@ -53,6 +61,8 @@ impl TransactionType {
             Self::Script => "0x0",
             Self::Create => "0x1",
             Self::Mint => "0x2",
+            Self::Upgrade => "0x3",
+            Self::Upload => "0x4",
         }
     }
 }
@@ -112,6 +122,8 @@ mod tests {
         assert_tokens(&TransactionType::Script, &[Token::Str("0x0")]);
         assert_tokens(&TransactionType::Create, &[Token::Str("0x1")]);
         assert_tokens(&TransactionType::Mint, &[Token::Str("0x2")]);
+        assert_tokens(&TransactionType::Upgrade, &[Token::Str("0x3")]);
+        assert_tokens(&TransactionType::Upload, &[Token::Str("0x4")]);
     }
 
     #[test]

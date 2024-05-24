@@ -35,12 +35,17 @@ pub struct BlockHeader {
     pub da_height: UInt,
     /// The number of transactions in the block.
     pub transactions_count: Quantity,
+    /// version of consensus
+    pub consensus_parameters_version: UInt,
+    /// version of the state transition
+    pub state_transition_bytecode_version: UInt,
     /// The number of receipt messages in the block.
     pub message_receipt_count: Quantity,
     /// The merkle root of the transactions in the block.
     pub transactions_root: Hash,
-    /// The merkle root of the receipt messages in the block.
-    pub message_receipt_root: Hash,
+    /// The merkle root of the messages in the block.
+    pub message_outbox_root: Hash,
+    pub event_inbox_root: Hash,
     /// The block height.
     pub height: UInt,
     /// The merkle root of all previous consensus header hashes (not including this block).
@@ -85,16 +90,19 @@ pub struct Transaction {
     pub input_contract_tx_pointer_tx_index: Option<UInt>,
     /// The contract id for a contract used for the transaction input.
     pub input_contract: Option<ContractId>,
-    /// The gas price for the transaction.
-    pub gas_price: Option<UInt>,
-    /// The gas limit for the transaction.
-    pub gas_limit: Option<UInt>,
+    pub policies_tip: Option<UInt>,
+    pub policies_witness_limit: Option<UInt>,
+    pub policies_maturity: Option<UInt>,
+    pub policies_max_fee: Option<UInt>,
+    /// The gas limit for the script.
+    pub script_gas_limit: Option<UInt>,
     /// The minimum block height that the transaction can be included at.
     pub maturity: Option<UInt>,
     /// The amount minted in the transaction.
     pub mint_amount: Option<UInt>,
     /// The asset ID for coins minted in the transaction.
     pub mint_asset_id: Option<Hash>,
+    pub mint_gas_price: Option<UInt>,
     /// The location of the transaction in the block.
     pub tx_pointer_block_height: Option<UInt>,
     pub tx_pointer_tx_index: Option<UInt>,
@@ -107,7 +115,7 @@ pub struct Transaction {
     /// The state root of contract after transaction execution from a transaction that changed the state of a contract.
     pub output_contract_state_root: Option<Hash>,
     /// An array of witnesses.
-    pub witnesses: Option<Data>,
+    pub witnesses: Option<Data>, // TODO: only first one, but this is a vec
     /// The root of the receipts.
     pub receipts_root: Option<Hash>,
     /// The status type of the transaction.
@@ -124,8 +132,13 @@ pub struct Transaction {
     pub script_data: Option<Data>,
     /// The witness index of contract bytecode.
     pub bytecode_witness_index: Option<UInt>,
-    /// The length of the transaction bytecode.
-    pub bytecode_length: Option<UInt>,
+    pub bytecode_root: Option<Hash>,
+    pub subsection_index: Option<UInt>,
+    pub subsections_number: Option<UInt>,
+    pub proof_set: Option<Data>, // TODO: only first one, but this is a vec
+    pub consensus_parameters_upgrade_purpose_witness_index: Option<UInt>,
+    pub consensus_parameters_upgrade_purpose_checksum: Option<Data>,
+    pub state_transition_upgrade_purpose_root: Option<Hash>,
     /// The salt value for the transaction.
     pub salt: Option<Data>,
 }
@@ -279,126 +292,3 @@ pub type Address = FixedSizeData<32>;
 
 // contract id is also a 32 byte hash
 pub type ContractId = FixedSizeData<32>;
-
-/*
-/// Evm block header object
-///
-/// See ethereum rpc spec for the meaning of fields
-#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BlockHeader {
-    pub number: BlockNumber,
-    pub hash: Hash,
-    pub parent_hash: Hash,
-    pub nonce: Option<Nonce>,
-    #[serde(default)]
-    pub sha3_uncles: Hash,
-    pub logs_bloom: BloomFilter,
-    pub transactions_root: Hash,
-    pub state_root: Hash,
-    pub receipts_root: Hash,
-    pub miner: Address,
-    pub difficulty: Option<Quantity>,
-    pub total_difficulty: Option<Quantity>,
-    pub extra_data: Data,
-    pub size: Quantity,
-    pub gas_limit: Quantity,
-    pub gas_used: Quantity,
-    pub timestamp: Quantity,
-    pub uncles: Option<Vec<Hash>>,
-    pub base_fee_per_gas: Option<Quantity>,
-}
-
-/// Evm block object
-///
-/// A block will contain a header and either a list of full transaction objects or
-/// a list of only transaction hashes.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Block<Tx> {
-    #[serde(flatten)]
-    pub header: BlockHeader,
-    pub transactions: Vec<Tx>,
-}
-
-/// Evm transaction object
-///
-/// See ethereum rpc spec for the meaning of fields
-#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Transaction {
-    pub block_hash: Hash,
-    pub block_number: BlockNumber,
-    pub from: Option<Address>,
-    pub gas: Quantity,
-    pub gas_price: Option<Quantity>,
-    pub hash: Hash,
-    pub input: Data,
-    pub nonce: Quantity,
-    pub to: Option<Address>,
-    pub transaction_index: TransactionIndex,
-    pub value: Quantity,
-    pub v: Option<Quantity>,
-    pub r: Option<Quantity>,
-    pub s: Option<Quantity>,
-    pub max_priority_fee_per_gas: Option<Quantity>,
-    pub max_fee_per_gas: Option<Quantity>,
-    pub chain_id: Option<Quantity>,
-}
-
-/// Evm transaction receipt object
-///
-/// See ethereum rpc spec for the meaning of fields
-#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TransactionReceipt {
-    pub transaction_hash: Hash,
-    pub transaction_index: TransactionIndex,
-    pub block_hash: Hash,
-    pub block_number: BlockNumber,
-    pub from: Address,
-    pub to: Option<Address>,
-    pub cumulative_gas_used: Quantity,
-    #[serde(default)]
-    pub effective_gas_price: Quantity,
-    pub gas_used: Quantity,
-    pub contract_address: Option<Address>,
-    pub logs: Vec<Log>,
-    pub logs_bloom: BloomFilter,
-    #[serde(rename = "type")]
-    pub kind: Option<TransactionType>,
-    pub root: Option<Hash>,
-    pub status: Option<TransactionStatus>,
-}
-
-/// Evm log object
-///
-/// See ethereum rpc spec for the meaning of fields
-#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Log {
-    pub removed: Option<bool>,
-    pub log_index: LogIndex,
-    pub transaction_index: TransactionIndex,
-    pub transaction_hash: Hash,
-    pub block_hash: Hash,
-    pub block_number: BlockNumber,
-    pub address: Address,
-    pub data: Data,
-    pub topics: ArrayVec<LogArgument, 4>,
-}
-*/
-
-// /// EVM log argument is 32 bytes of data
-// pub type LogArgument = FixedSizeData<32>;
-
-// /// EVM address is 20 bytes of data
-// pub type Address = FixedSizeData<20>;
-
-// /// EVM nonce is 8 bytes of data
-// pub type Nonce = FixedSizeData<8>;
-
-// pub type BloomFilter = Data;
-// pub type BlockNumber = uint::UInt;
-// pub type TransactionIndex = uint::UInt;
-// pub type LogIndex = uint::UInt;

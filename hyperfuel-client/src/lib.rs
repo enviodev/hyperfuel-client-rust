@@ -480,7 +480,7 @@ fn add_selections_to_field_selection(query: &mut Query) -> Query {
 }
 
 // first sort by block height, then by receipt_index
-fn sort_receipts(receipts: &mut Vec<Receipt>) {
+fn sort_receipts(receipts: &mut [Receipt]) {
     receipts.sort_by(|a, b| {
         a.block_height
             .cmp(&b.block_height)

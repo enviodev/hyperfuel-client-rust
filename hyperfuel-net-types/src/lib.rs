@@ -33,6 +33,8 @@ pub struct ReceiptSelection {
     pub rc: Vec<u64>,
     #[serde(default)]
     pub rd: Vec<u64>,
+    #[serde(default)]
+    pub tx_status: Vec<u8>,
 }
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
@@ -49,6 +51,8 @@ pub struct InputSelection {
     pub recipient: Vec<Hash>,
     #[serde(default)]
     pub input_type: Vec<u8>,
+    #[serde(default)]
+    pub tx_status: Vec<u8>,
 }
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
@@ -61,6 +65,8 @@ pub struct OutputSelection {
     pub contract: Vec<Hash>,
     #[serde(default)]
     pub output_type: Vec<u8>,
+    #[serde(default)]
+    pub tx_status: Vec<u8>,
 }
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]

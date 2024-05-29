@@ -1,14 +1,11 @@
-use std::{
-    collections::{BTreeSet, HashSet},
-    time::Duration,
-};
+use std::{collections::BTreeSet, time::Duration};
 
 use anyhow::{anyhow, Context, Result};
 use arrow2::{array::Array, chunk::Chunk};
 
 use filter::filter_out_unselected_data;
-use from_arrow::{receipts_from_arrow_data, typed_data_from_arrow_data, FromArrow};
-use hyperfuel_format::{Hash, Receipt, Transaction, TransactionStatus};
+use from_arrow::{receipts_from_arrow_data, typed_data_from_arrow_data};
+use hyperfuel_format::{Hash, Receipt};
 use hyperfuel_net_types::{
     hyperfuel_net_types_capnp, ArchiveHeight, FieldSelection, Query, ReceiptSelection,
 };
@@ -179,13 +176,10 @@ impl Client {
         from_block: u64,
         to_block: Option<u64>,
     ) -> Result<LogResponse> {
-        let mut transaction_field_selection = BTreeSet::new();
-        transaction_field_selection.insert("id".to_owned());
-        transaction_field_selection.insert("status".to_owned());
-
         let mut receipt_field_selection = BTreeSet::new();
         receipt_field_selection.insert("block_height".to_owned());
         receipt_field_selection.insert("tx_id".to_owned());
+        receipt_field_selection.insert("tx_status".to_owned());
         receipt_field_selection.insert("receipt_index".to_owned());
         receipt_field_selection.insert("receipt_type".to_owned());
         receipt_field_selection.insert("contract_id".to_owned());
@@ -206,20 +200,13 @@ impl Client {
         let query = Query {
             from_block,
             to_block,
-            receipts: vec![
-                ReceiptSelection {
-                    root_contract_id: emitting_contracts.clone(),
-                    receipt_type: vec![5, 6],
-                    ..Default::default()
-                },
-                ReceiptSelection {
-                    contract_id: emitting_contracts,
-                    receipt_type: vec![5, 6],
-                    ..Default::default()
-                },
-            ],
+            receipts: vec![ReceiptSelection {
+                root_contract_id: emitting_contracts.clone(),
+                receipt_type: vec![5, 6],
+                tx_status: vec![1],
+                ..Default::default()
+            }],
             field_selection: FieldSelection {
-                transaction: transaction_field_selection,
                 receipt: receipt_field_selection,
                 ..Default::default()
             },
@@ -239,32 +226,16 @@ impl Client {
 
         sort_receipts(&mut typed_receipts);
 
-        let mut failed_txns = HashSet::new();
-        for batch in filtered_data.transactions.iter() {
-            let data = Transaction::from_arrow(batch).context("transaction from arrow")?;
-            for transaction in data {
-                if transaction.status == TransactionStatus::Failure {
-                    failed_txns.insert(transaction.id);
-                }
-            }
-        }
-
-        let successful_logs: Vec<LogContext> = typed_receipts
+        let logs: Vec<LogContext> = typed_receipts
             .into_iter()
-            .filter_map(|receipt| {
-                if !failed_txns.contains(&receipt.tx_id) {
-                    Some(receipt.into())
-                } else {
-                    None
-                }
-            })
+            .map(|receipt| receipt.into())
             .collect();
 
         Ok(LogResponse {
             archive_height: res.archive_height,
             next_block: res.next_block,
             total_execution_time: res.total_execution_time,
-            data: successful_logs,
+            data: logs,
         })
     }
 

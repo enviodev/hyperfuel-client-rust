@@ -69,7 +69,7 @@ pub fn transaction() -> SchemaRef {
         // vec
         Field::new("witnesses", DataType::Binary, true),
         Field::new("receipts_root", DataType::Binary, true),
-        Field::new("status", DataType::UInt8, true),
+        Field::new("status", DataType::UInt8, false),
         Field::new("time", DataType::Int64, false),
         Field::new("reason", DataType::Utf8, true),
         Field::new("script", DataType::Binary, true),
@@ -109,6 +109,7 @@ pub fn receipt() -> SchemaRef {
         Field::new("receipt_index", DataType::UInt64, false),
         Field::new("root_contract_id", DataType::Binary, true),
         Field::new("tx_id", DataType::Binary, false),
+        Field::new("tx_status", DataType::UInt8, false), // new
         Field::new("block_height", DataType::UInt64, false),
         Field::new("pc", DataType::UInt64, true),
         Field::new("is", DataType::UInt64, true),
@@ -145,6 +146,7 @@ pub fn input() -> SchemaRef {
     Schema::from(vec![
         // for mapping
         Field::new("tx_id", DataType::Binary, false),
+        Field::new("tx_status", DataType::UInt8, false), // new
         Field::new("block_height", DataType::UInt64, false),
         Field::new("input_type", DataType::UInt8, false),
         Field::new("utxo_id", DataType::Binary, true),
@@ -172,6 +174,7 @@ pub fn output() -> SchemaRef {
     Schema::from(vec![
         // for mapping
         Field::new("tx_id", DataType::Binary, false),
+        Field::new("tx_status", DataType::UInt8, false), // new
         Field::new("block_height", DataType::UInt64, false),
         Field::new("output_type", DataType::UInt8, false),
         Field::new("to", DataType::Binary, true),

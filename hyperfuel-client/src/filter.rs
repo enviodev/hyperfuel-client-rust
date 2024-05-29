@@ -100,6 +100,7 @@ fn receipt_selections_to_filter(
     let rb = batch.column::<UInt64Array>("rb").ok();
     let rc = batch.column::<UInt64Array>("rc").ok();
     let rd = batch.column::<UInt64Array>("rd").ok();
+    let tx_status = batch.column::<UInt8Array>("tx_status").ok();
 
     let chunk_len = batch.chunk.len();
     let mut filter = unset_bool_array(chunk_len);
@@ -117,6 +118,7 @@ fn receipt_selections_to_filter(
             rb,
             rc,
             rd,
+            tx_status,
             selection,
             chunk_len,
         );
@@ -139,6 +141,7 @@ fn receipt_selection_to_filter(
     rb: Option<&UInt64Array>,
     rc: Option<&UInt64Array>,
     rd: Option<&UInt64Array>,
+    tx_status: Option<&UInt8Array>,
     selection: &ReceiptSelection,
     chunk_len: usize,
 ) -> BooleanArray {
@@ -179,7 +182,8 @@ fn receipt_selection_to_filter(
     }
 
     if !selection.contract_id.is_empty() && contract_id.is_some() {
-        let set = selection.contract_id.iter().map(|t| t.as_slice()).collect();
+        let set: StdHashSet<&[u8], Xxh3Builder> =
+            selection.contract_id.iter().map(|t| t.as_slice()).collect();
         filter = compute::boolean::and(&filter, &in_set_binary(contract_id.unwrap(), &set));
     }
 
@@ -201,6 +205,13 @@ fn receipt_selection_to_filter(
     if !selection.rd.is_empty() && rd.is_some() {
         let set = selection.rd.iter().copied().collect();
         filter = compute::boolean::and(&filter, &in_set_u64(rd.unwrap(), &set));
+    }
+
+    if !selection.tx_status.is_empty() && tx_status.is_some() {
+        filter = compute::boolean::and(
+            &filter,
+            &in_set_u8(tx_status.unwrap(), &selection.tx_status),
+        );
     }
 
     filter
@@ -257,13 +268,15 @@ fn input_selections_to_filter(
     let sender = batch.column::<BinaryArray<i32>>("sender").ok();
     let recipient = batch.column::<BinaryArray<i32>>("recipient").ok();
     let input_type = batch.column::<UInt8Array>("input_type").ok();
+    let tx_status = batch.column::<UInt8Array>("tx_status").ok();
 
     let chunk_len = batch.chunk.len();
     let mut filter = unset_bool_array(chunk_len);
 
     for selection in selections.iter() {
         let selection = input_selection_to_filter(
-            owner, asset_id, contract, sender, recipient, input_type, selection, chunk_len,
+            owner, asset_id, contract, sender, recipient, input_type, tx_status, selection,
+            chunk_len,
         );
         filter = compute::boolean::or(&filter, &selection);
     }
@@ -279,6 +292,7 @@ fn input_selection_to_filter(
     sender: Option<&BinaryArray<i32>>,
     recipient: Option<&BinaryArray<i32>>,
     input_type: Option<&UInt8Array>,
+    tx_status: Option<&UInt8Array>,
     selection: &InputSelection,
     chunk_len: usize,
 ) -> BooleanArray {
@@ -314,6 +328,13 @@ fn input_selection_to_filter(
         filter = compute::boolean::and(&filter, &in_set_u8(input_type.unwrap(), &set));
     }
 
+    if !selection.tx_status.is_empty() && tx_status.is_some() {
+        filter = compute::boolean::and(
+            &filter,
+            &in_set_u8(tx_status.unwrap(), &selection.tx_status),
+        );
+    }
+
     filter
 }
 
@@ -325,13 +346,21 @@ fn output_selections_to_filter(
     let asset_id = batch.column::<BinaryArray<i32>>("asset_id").ok();
     let contract = batch.column::<BinaryArray<i32>>("contract").ok();
     let output_type = batch.column::<UInt8Array>("output_type").ok();
+    let tx_status = batch.column::<UInt8Array>("tx_status").ok();
 
     let chunk_len = batch.chunk.len();
     let mut filter = unset_bool_array(chunk_len);
 
     for selection in selections.iter() {
-        let selection =
-            output_selection_to_filter(to, asset_id, contract, output_type, selection, chunk_len);
+        let selection = output_selection_to_filter(
+            to,
+            asset_id,
+            contract,
+            output_type,
+            tx_status,
+            selection,
+            chunk_len,
+        );
         filter = compute::boolean::or(&filter, &selection);
     }
 
@@ -343,6 +372,7 @@ fn output_selection_to_filter(
     asset_id: Option<&BinaryArray<i32>>,
     contract: Option<&BinaryArray<i32>>,
     output_type: Option<&UInt8Array>,
+    tx_status: Option<&UInt8Array>,
     selection: &OutputSelection,
     chunk_len: usize,
 ) -> BooleanArray {
@@ -366,6 +396,13 @@ fn output_selection_to_filter(
     if !selection.output_type.is_empty() && output_type.is_some() {
         let set = selection.output_type.to_vec();
         filter = compute::boolean::and(&filter, &in_set_u8(output_type.unwrap(), &set));
+    }
+
+    if !selection.tx_status.is_empty() && tx_status.is_some() {
+        filter = compute::boolean::and(
+            &filter,
+            &in_set_u8(tx_status.unwrap(), &selection.tx_status),
+        );
     }
 
     filter

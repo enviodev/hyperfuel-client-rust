@@ -1,1 +1,1 @@
-We query from blocks 7980000 (inclusive) to 7980100 (exclusive) for all `Inputs` where the address `0x0000000000000000000000000000000000000000000000000000000000000000` matches on the `asset_id` field.
+We query from blocks 0 (inclusive) to 1299067 (exclusive) for all `Inputs` where the address `0x2a0d0ed9d2217ec7f32dcd9a1902ce2a66d68437aeff84e3a3cc8bebee0d2eea` matches on the `asset_id` field.

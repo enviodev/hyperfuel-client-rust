@@ -21,6 +21,7 @@ async fn main() {
     // if to_block is not set, query runs to the end of the chain
     let to_block = Some(1627509);
 
+    // get logs
     let logs = client
         .preset_query_get_logs(contracts, from_block, to_block)
         .await

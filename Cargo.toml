@@ -4,7 +4,6 @@ resolver = "2"
 members = [
     "examples/asset-id",
     "examples/predicate-root",
-    "examples/find-receipt-ordering",
     "examples/simple-logs",
     "hyperfuel-client",
     "hyperfuel-format",

@@ -382,6 +382,7 @@ fn output_selections_to_filter(
     Ok(filter)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn output_selection_to_filter(
     to: Option<&BinaryArray<i32>>,
     asset_id: Option<&BinaryArray<i32>>,

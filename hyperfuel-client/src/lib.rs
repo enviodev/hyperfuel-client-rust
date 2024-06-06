@@ -409,6 +409,12 @@ fn add_selections_to_field_selection(query: &mut Query) -> Query {
         if !selection.rd.is_empty() {
             query.field_selection.receipt.insert("rd".into());
         }
+        if !selection.tx_status.is_empty() {
+            query.field_selection.receipt.insert("tx_status".into());
+        }
+        if !selection.tx_type.is_empty() {
+            query.field_selection.receipt.insert("tx_type".into());
+        }
     });
 
     query.inputs.iter_mut().for_each(|selection| {
@@ -430,6 +436,12 @@ fn add_selections_to_field_selection(query: &mut Query) -> Query {
         if !selection.input_type.is_empty() {
             query.field_selection.input.insert("input_type".into());
         }
+        if !selection.tx_status.is_empty() {
+            query.field_selection.input.insert("tx_status".into());
+        }
+        if !selection.tx_type.is_empty() {
+            query.field_selection.receipt.insert("tx_type".into());
+        }
     });
 
     query.outputs.iter_mut().for_each(|selection| {
@@ -444,6 +456,12 @@ fn add_selections_to_field_selection(query: &mut Query) -> Query {
         }
         if !selection.output_type.is_empty() {
             query.field_selection.output.insert("output_type".into());
+        }
+        if !selection.tx_status.is_empty() {
+            query.field_selection.output.insert("tx_status".into());
+        }
+        if !selection.tx_type.is_empty() {
+            query.field_selection.receipt.insert("tx_type".into());
         }
     });
 

@@ -454,6 +454,12 @@ impl FromArrow for Receipt {
             }
         }
 
+        if let Ok(col) = batch.column::<UInt8Array>("tx_type") {
+            for (target, val) in out.iter_mut().zip(col.values_iter()) {
+                target.tx_type = TransactionType::from_u8(*val).unwrap();
+            }
+        }
+
         if let Ok(col) = batch.column::<UInt64Array>("block_height") {
             for (target, &val) in out.iter_mut().zip(col.values_iter()) {
                 target.block_height = val.into();
@@ -622,6 +628,11 @@ impl FromArrow for Input {
                 target.tx_status = TransactionStatus::from_u8(*val).unwrap();
             }
         }
+        if let Ok(col) = batch.column::<UInt8Array>("tx_type") {
+            for (target, val) in out.iter_mut().zip(col.values_iter()) {
+                target.tx_type = TransactionType::from_u8(*val).unwrap();
+            }
+        }
         if let Ok(col) = batch.column::<BinaryArray<i32>>("utxo_id") {
             for (target, val) in out.iter_mut().zip(col.iter()) {
                 target.utxo_id = val.map(|v| v.try_into().unwrap());
@@ -734,6 +745,11 @@ impl FromArrow for Output {
         if let Ok(col) = batch.column::<UInt8Array>("tx_status") {
             for (target, val) in out.iter_mut().zip(col.values_iter()) {
                 target.tx_status = TransactionStatus::from_u8(*val).unwrap();
+            }
+        }
+        if let Ok(col) = batch.column::<UInt8Array>("tx_type") {
+            for (target, val) in out.iter_mut().zip(col.values_iter()) {
+                target.tx_type = TransactionType::from_u8(*val).unwrap();
             }
         }
         if let Ok(col) = batch.column::<BinaryArray<i32>>("to") {

@@ -155,6 +155,8 @@ pub struct Receipt {
     pub tx_id: Hash,
     /// The status type of the transaction this receipt originated from
     pub tx_status: TransactionStatus,
+    /// The type of the transaction this receipt originated from
+    pub tx_type: TransactionType,
     /// block that the receipt originated in
     pub block_height: UInt,
     /// The value of the program counter register $pc, which is the memory address of the current instruction.
@@ -221,6 +223,8 @@ pub struct Input {
     pub tx_id: Hash,
     /// The status type of the transaction this input originated from
     pub tx_status: TransactionStatus,
+    /// The type of the transaction this input originated from
+    pub tx_type: TransactionType,
     /// block that the input originated in
     pub block_height: UInt,
     /// InputCoin, InputContract, or InputMessage
@@ -269,6 +273,8 @@ pub struct Output {
     pub tx_id: Hash,
     /// The status type of the transaction this output originated from
     pub tx_status: TransactionStatus,
+    /// The type of the transaction this output originated from
+    pub tx_type: TransactionType,
     /// block that the output originated in
     pub block_height: UInt,
     /// CoinOutput, ContractOutput, ChangeOutput, VariableOutput, or ContractCreated

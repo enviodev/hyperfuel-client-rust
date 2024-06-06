@@ -18,7 +18,7 @@ async fn main() {
         // start query from block 0
         "from_block": 0,
         // if to_block is not set, query runs to the end of the chain
-        "to_block":   1299067,
+        "to_block": 1300000,
         // load inputs that have `asset_id` = 0x2a0d0ed9d2217ec7f32dcd9a1902ce2a66d68437aeff84e3a3cc8bebee0d2eea
         "inputs": [
             {
@@ -41,4 +41,5 @@ async fn main() {
     let res = client.get_selected_data(&query).await.unwrap();
 
     println!("inputs: {:?}", res.data.inputs);
+    println!("query took {}ms", res.total_execution_time);
 }

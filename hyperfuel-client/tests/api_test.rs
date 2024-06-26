@@ -188,9 +188,9 @@ async fn test_get_data() {
 
     let res = client.get_data(&query).await.unwrap();
 
-    assert!(res.data.outputs.len() == 0);
-    assert!(res.data.inputs.len() > 0);
-    assert!(res.data.blocks.len() > 0);
+    assert!(res.data.outputs.is_empty());
+    assert!(!res.data.inputs.is_empty());
+    assert!(!res.data.blocks.is_empty());
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -299,7 +299,7 @@ async fn test_get_selected_data() {
         }
     }));
 
-    assert!(res.data.inputs.len() > 0);
+    assert!(!res.data.inputs.is_empty());
 
     let query: Query = serde_json::from_value(serde_json::json!({
         "from_block": 4105960,
@@ -508,11 +508,11 @@ async fn test_from_arrow_all_fields() {
 
     let res = client.get_data(&query).await.unwrap();
 
-    assert!(res.data.blocks.len() > 0);
-    assert!(res.data.transactions.len() > 0);
-    assert!(res.data.receipts.len() > 0);
-    assert!(res.data.inputs.len() > 0);
-    assert!(res.data.outputs.len() > 0);
+    assert!(!res.data.blocks.is_empty());
+    assert!(!res.data.transactions.is_empty());
+    assert!(!res.data.receipts.is_empty());
+    assert!(!res.data.inputs.is_empty());
+    assert!(!res.data.outputs.is_empty());
 }
 
 /* TODO: decoding */

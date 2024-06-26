@@ -122,8 +122,6 @@ impl Client {
         let mut typed_data =
             typed_data_from_arrow_data(res.data).context("convert arrow data to typed response")?;
 
-        sort_receipts(&mut typed_data.receipts);
-
         Ok(QueryResponseTyped {
             archive_height: res.archive_height,
             next_block: res.next_block,
@@ -149,8 +147,6 @@ impl Client {
 
         let mut typed_data = typed_data_from_arrow_data(filtered_data)
             .context("convert arrow data to typed response")?;
-
-        sort_receipts(&mut typed_data.receipts);
 
         Ok(QueryResponseTyped {
             archive_height: res.archive_height,
@@ -223,8 +219,6 @@ impl Client {
 
         let mut typed_receipts = receipts_from_arrow_data(&filtered_data.receipts)
             .context("convert arrow data to receipt response")?;
-
-        sort_receipts(&mut typed_receipts);
 
         let logs: Vec<LogContext> = typed_receipts
             .into_iter()
@@ -466,93 +460,4 @@ fn add_selections_to_field_selection(query: &mut Query) -> Query {
     });
 
     query.clone()
-}
-
-// first sort by block height, then by receipt_index
-fn sort_receipts(receipts: &mut [Receipt]) {
-    receipts.sort_by(|a, b| {
-        a.block_height
-            .cmp(&b.block_height)
-            .then_with(|| a.receipt_index.cmp(&b.receipt_index))
-    });
-}
-
-#[cfg(test)]
-mod tests {
-    use hyperfuel_format::Receipt;
-
-    use crate::sort_receipts;
-
-    #[test]
-    fn test_sort_receipts() {
-        let mut receipts: Vec<Receipt> = vec![
-            Receipt {
-                block_height: 0.into(),
-                receipt_index: 1.into(),
-                ..Default::default()
-            },
-            Receipt {
-                block_height: 0.into(),
-                receipt_index: 0.into(),
-                ..Default::default()
-            },
-            Receipt {
-                block_height: 1.into(),
-                receipt_index: 0.into(),
-                ..Default::default()
-            },
-            Receipt {
-                block_height: 2.into(),
-                receipt_index: 2.into(),
-                ..Default::default()
-            },
-            Receipt {
-                block_height: 2.into(),
-                receipt_index: 3.into(),
-                ..Default::default()
-            },
-            Receipt {
-                block_height: 2.into(),
-                receipt_index: 1.into(),
-                ..Default::default()
-            },
-        ];
-
-        sort_receipts(&mut receipts);
-
-        let correct_order: Vec<Receipt> = vec![
-            Receipt {
-                block_height: 0.into(),
-                receipt_index: 0.into(),
-                ..Default::default()
-            },
-            Receipt {
-                block_height: 0.into(),
-                receipt_index: 1.into(),
-                ..Default::default()
-            },
-            Receipt {
-                block_height: 1.into(),
-                receipt_index: 0.into(),
-                ..Default::default()
-            },
-            Receipt {
-                block_height: 2.into(),
-                receipt_index: 1.into(),
-                ..Default::default()
-            },
-            Receipt {
-                block_height: 2.into(),
-                receipt_index: 2.into(),
-                ..Default::default()
-            },
-            Receipt {
-                block_height: 2.into(),
-                receipt_index: 3.into(),
-                ..Default::default()
-            },
-        ];
-
-        assert_eq!(receipts, correct_order)
-    }
 }

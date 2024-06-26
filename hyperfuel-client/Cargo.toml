@@ -1,6 +1,6 @@
 [package]
 name = "hyperfuel-client"
-version = "2.1.0"
+version = "2.1.1"
 edition = "2021"
 description = "client library for Envio's HyperSync support of the Fuel Network"
 license = "MIT"

@@ -25,7 +25,6 @@ async fn main() {
         // Update the query with the new from_block
         let query = Query {
             from_block,
-            to_block: Some(1427625),
             receipts: vec![ReceiptSelection {
                 receipt_type: vec![6],
                 root_contract_id: vec![contract.into()],
@@ -67,7 +66,7 @@ async fn main() {
                 println!("Receipt details:");
                 for receipt in &res.data.receipts {
                     println!("  TX ID: {}", receipt.tx_id.encode_hex());
-                    println!("  Block Height: {:?}", receipt.block_height);
+                    println!("  Block Height: {:?}", *receipt.block_height,);
                     println!(
                         "  Root Contract ID: {}",
                         receipt
@@ -76,6 +75,7 @@ async fn main() {
                             .map(|id| id.encode_hex())
                             .unwrap_or_default()
                     );
+                    // TODO: add code to decode this data
                     println!(
                         "  Data: {}",
                         receipt
@@ -84,10 +84,24 @@ async fn main() {
                             .map(|data| data.encode_hex())
                             .unwrap_or_default()
                     );
-                    println!("  Receipt Index: {:?}", receipt.receipt_index);
+                    println!("  Receipt Index: {:?}", *receipt.receipt_index);
                     println!("  Receipt Type: {:?}", receipt.receipt_type);
-                    println!("  RA: {:?}", receipt.ra);
-                    println!("  RB: {:?}", receipt.rb);
+                    println!("  RA: {:?}", receipt.ra.map(|ra| *ra).unwrap_or_default());
+                    println!(
+                        "  RB (logId): {:?}",
+                        receipt
+                            .rb
+                            .map(|rb| if *rb == 11192939610819626128 {
+                                "SellItem"
+                            } else if *rb == 9956391856148830557 {
+                                "LevelUp"
+                            } else if *rb == 169340015036328252 {
+                                "NewPlayer"
+                            } else {
+                                "Unknown"
+                            })
+                            .unwrap_or_default()
+                    );
                     println!("  ---");
                 }
             } else {

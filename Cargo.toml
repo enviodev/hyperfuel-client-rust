@@ -5,6 +5,7 @@ members = [
     "examples/asset-id",
     "examples/predicate-root",
     "examples/simple-logs",
+    "examples/stream-logs",
     "hyperfuel-client",
     "hyperfuel-format",
     "hyperfuel-net-types",

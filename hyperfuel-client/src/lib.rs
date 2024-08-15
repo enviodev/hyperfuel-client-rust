@@ -12,6 +12,7 @@ use hyperfuel_net_types::{
 use reqwest::Method;
 
 pub mod config;
+pub mod decoder;
 mod filter;
 mod from_arrow;
 mod parquet_out;

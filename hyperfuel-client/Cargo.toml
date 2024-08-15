@@ -38,6 +38,7 @@ xxhash-rust = { version = "0.8", features = ["xxh3"] }
 hyperfuel-net-types = { package = "hyperfuel-net-types", path = "../hyperfuel-net-types", version = "3.0.0" }
 hyperfuel-format = { package = "hyperfuel-format", path = "../hyperfuel-format", version = "3.0.0" }
 hyperfuel-schema = { package = "hyperfuel-schema", path = "../hyperfuel-schema", version = "3.0.0" }
+fuel-abi-types = "0.7.0"
 
 [dependencies.reqwest]
 version = "0.11"

@@ -235,6 +235,29 @@ impl Client {
 
     /// Send a query request to the source hypersync instance.
     ///
+    /// Returns a query response that which contains arrow data that doesn't include any inputs, outputs,
+    /// and receipts that don't exactly match the query's input, outout, or receipt selection.
+    pub async fn get_selected_arrow_data(&self, query: &Query) -> Result<QueryResponse> {
+        let query = add_selections_to_field_selection(&mut query.clone());
+
+        let res = self
+            .get_arrow_data(&query)
+            .await
+            .context("get arrow data")?;
+
+        let filtered_data =
+            filter_out_unselected_data(res.data, &query).context("filter out unselected data")?;
+
+        Ok(QueryResponse {
+            archive_height: res.archive_height,
+            next_block: res.next_block,
+            total_execution_time: res.total_execution_time,
+            data: filtered_data,
+        })
+    }
+
+    /// Send a query request to the source hypersync instance.
+    ///
     /// Returns a query response which contains arrow data.
     ///
     /// NOTE: this query returns loads all transactions that your match your receipt, input, or output selections

@@ -5,9 +5,8 @@ use serde::{Deserialize, Serialize};
 
 pub type Sighash = FixedSizeData<4>;
 
-pub mod hyperfuel_net_types_capnp {
-    include!(concat!(env!("OUT_DIR"), "/hyperfuel_net_types_capnp.rs"));
-}
+mod __generated__;
+pub use __generated__::hyperfuel_net_types_capnp;
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
 pub struct ReceiptSelection {

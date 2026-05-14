@@ -1,6 +1,6 @@
 [package]
 name = "hyperfuel-net-types"
-version = "3.0.0"
+version = "3.0.1"
 edition = "2021"
 description = "hyperfuel types for transport over network"
 license = "MIT"
@@ -11,6 +11,3 @@ serde = { version = "1", features = ["derive"] }
 arrayvec = { version = "0.7", features = ["serde"] }
 
 hyperfuel-format = { package = "hyperfuel-format", path = "../hyperfuel-format", version = "3.0.0" }
-
-[build-dependencies]
-capnpc = "0.18"

@@ -1,3 +1,4 @@
+use super::Hex;
 use crate::{Error, Result};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -5,11 +6,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::result::Result as StdResult;
 
-use super::Hex;
-
-#[derive(
-    Debug, Clone, PartialEq, Eq, Hash, derive_more::From, derive_more::Into, derive_more::Deref,
-)]
+#[derive(Clone, PartialEq, Eq, Hash, derive_more::From, derive_more::Into, derive_more::Deref)]
 pub struct Quantity(Box<[u8]>);
 
 impl AsRef<[u8]> for Quantity {
@@ -24,6 +21,56 @@ impl From<Vec<u8>> for Quantity {
         assert!(buf.len() == 1 || buf[0] != 0);
 
         Self(buf.into())
+    }
+}
+
+impl From<u64> for Quantity {
+    fn from(value: u64) -> Self {
+        Self(value.to_be_bytes().into())
+    }
+}
+
+#[cfg(feature = "ethers")]
+impl From<ethabi::ethereum_types::U256> for Quantity {
+    fn from(value: ethabi::ethereum_types::U256) -> Self {
+        let mut buf = Box::new([]);
+        value.to_big_endian(buf.as_mut());
+        Self(buf)
+    }
+}
+
+#[cfg(feature = "ethers")]
+impl TryFrom<Quantity> for ethabi::ethereum_types::U256 {
+    type Error = ();
+
+    fn try_from(value: Quantity) -> StdResult<Self, Self::Error> {
+        // Comparison comes from assert!($n_words * 8 >= slice.len());
+        if value.0.len() > 32 {
+            return Err(());
+        }
+        Ok(ethabi::ethereum_types::U256::from_big_endian(&value.0))
+    }
+}
+
+#[cfg(feature = "ethers")]
+impl From<ethabi::ethereum_types::U64> for Quantity {
+    fn from(value: ethabi::ethereum_types::U64) -> Self {
+        let mut buf = Box::new([]);
+        value.to_big_endian(buf.as_mut());
+        Self(buf)
+    }
+}
+
+#[cfg(feature = "ethers")]
+impl TryFrom<Quantity> for ethabi::ethereum_types::U64 {
+    type Error = ();
+
+    fn try_from(value: Quantity) -> StdResult<Self, Self::Error> {
+        // Comparison comes from assert!($n_words * 8 >= slice.len());
+        if value.0.len() > 32 {
+            return Err(());
+        }
+        Ok(ethabi::ethereum_types::U64::from_big_endian(&value.0))
     }
 }
 
@@ -124,6 +171,12 @@ pub fn encode_hex(buf: &[u8]) -> String {
     match hex_val.find(|c| c != '0') {
         Some(idx) => format!("0x{}", &hex_val[idx..]),
         None => "0x0".into(),
+    }
+}
+
+impl fmt::Debug for Quantity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Quantity({})", self.encode_hex())
     }
 }
 

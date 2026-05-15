@@ -7,32 +7,26 @@ use std::str::FromStr;
 
 use super::Hex;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Default, Clone, PartialEq, Eq)]
 pub enum TransactionStatus {
     #[default]
-    Submitted,
     Success,
-    SqueezedOut,
     Failure,
 }
 
 impl TransactionStatus {
     pub fn from_u8(val: u8) -> Result<Self> {
         match val {
-            0 => Ok(Self::Submitted),
             1 => Ok(Self::Success),
-            2 => Ok(Self::SqueezedOut),
-            3 => Ok(Self::Failure),
+            0 => Ok(Self::Failure),
             _ => Err(Error::UnknownTransactionStatus(val.to_string())),
         }
     }
 
-    pub fn as_u8(&self) -> u8 {
+    pub fn to_u8(&self) -> u8 {
         match self {
-            Self::Submitted => 0,
             Self::Success => 1,
-            Self::SqueezedOut => 2,
-            Self::Failure => 3,
+            Self::Failure => 0,
         }
     }
 }
@@ -42,10 +36,8 @@ impl FromStr for TransactionStatus {
 
     fn from_str(s: &str) -> Result<Self> {
         match s {
-            "0x0" => Ok(Self::Submitted),
             "0x1" => Ok(Self::Success),
-            "0x2" => Ok(Self::SqueezedOut),
-            "0x3" => Ok(Self::Failure),
+            "0x0" => Ok(Self::Failure),
             _ => Err(Error::UnknownTransactionStatus(s.to_owned())),
         }
     }
@@ -54,10 +46,8 @@ impl FromStr for TransactionStatus {
 impl TransactionStatus {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Submitted => "0x0",
             Self::Success => "0x1",
-            Self::SqueezedOut => "0x2",
-            Self::Failure => "0x3",
+            Self::Failure => "0x0",
         }
     }
 }
@@ -107,6 +97,12 @@ impl Hex for TransactionStatus {
     }
 }
 
+impl fmt::Debug for TransactionStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "TransactionStatus({})", self.encode_hex())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::TransactionStatus;
@@ -114,15 +110,13 @@ mod tests {
 
     #[test]
     fn test_serde() {
-        assert_tokens(&TransactionStatus::Submitted, &[Token::Str("0x0")]);
         assert_tokens(&TransactionStatus::Success, &[Token::Str("0x1")]);
-        assert_tokens(&TransactionStatus::SqueezedOut, &[Token::Str("0x2")]);
-        assert_tokens(&TransactionStatus::Failure, &[Token::Str("0x3")]);
+        assert_tokens(&TransactionStatus::Failure, &[Token::Str("0x0")]);
     }
 
     #[test]
     #[should_panic]
     fn test_de_unknown() {
-        assert_de_tokens(&TransactionStatus::Submitted, &[Token::Str("0x4")]);
+        assert_de_tokens(&TransactionStatus::Success, &[Token::Str("0x3")]);
     }
 }

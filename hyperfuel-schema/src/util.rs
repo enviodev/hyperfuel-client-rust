@@ -1,22 +1,18 @@
 use std::collections::BTreeSet;
 
-use anyhow::{Context, Result};
+use polars_arrow::datatypes::ArrowSchema as Schema;
 
-use arrow2::datatypes::Schema;
-
-pub fn project_schema(
-    schema: &Schema,
-    field_selection: &BTreeSet<String>,
-) -> Result<Schema, anyhow::Error> {
+pub fn project_schema(schema: &Schema, field_selection: &BTreeSet<String>) -> Schema {
     let mut select_indices = Vec::new();
     for col_name in field_selection.iter() {
-        let (idx, _) = schema
+        if let Some((idx, _)) = schema
             .fields
             .iter()
             .enumerate()
             .find(|(_, f)| &f.name == col_name)
-            .context(format!("couldn't find column {col_name} in schema"))?;
-        select_indices.push(idx);
+        {
+            select_indices.push(idx);
+        }
     }
 
     let schema: Schema = schema
@@ -27,5 +23,5 @@ pub fn project_schema(
         .collect::<Vec<_>>()
         .into();
 
-    Ok(schema)
+    schema
 }

@@ -1,71 +1,27 @@
-use crate::{Error, Result};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::result::Result as StdResult;
-use std::str::FromStr;
 
+use super::quantity::encode_hex;
 use super::Hex;
+use crate::{Error, Result};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
-pub enum TransactionType {
-    #[default]
-    Script,
-    Create,
-    Mint,
-    Upgrade,
-    Upload,
-}
-
-impl TransactionType {
-    pub fn from_u8(val: u8) -> Result<Self> {
-        match val {
-            0 => Ok(Self::Script),
-            1 => Ok(Self::Create),
-            2 => Ok(Self::Mint),
-            3 => Ok(Self::Upgrade),
-            4 => Ok(Self::Upload),
-            _ => Err(Error::UnknownTransactionType(val.to_string())),
-        }
-    }
-
-    pub fn to_u8(&self) -> u8 {
-        match self {
-            Self::Script => 0,
-            Self::Create => 1,
-            Self::Mint => 2,
-            Self::Upgrade => 3,
-            Self::Upload => 4,
-        }
-    }
-}
-
-impl FromStr for TransactionType {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self> {
-        match s {
-            "0x0" => Ok(Self::Script),
-            "0x1" => Ok(Self::Create),
-            "0x2" => Ok(Self::Mint),
-            "0x3" => Ok(Self::Upgrade),
-            "0x4" => Ok(Self::Upload),
-            _ => Err(Error::UnknownTransactionType(s.to_owned())),
-        }
-    }
-}
-
-impl TransactionType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Script => "0x0",
-            Self::Create => "0x1",
-            Self::Mint => "0x2",
-            Self::Upgrade => "0x3",
-            Self::Upload => "0x4",
-        }
-    }
-}
+#[derive(
+    Default,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    derive_more::From,
+    derive_more::Into,
+    derive_more::Deref,
+    derive_more::Add,
+    derive_more::Sub,
+)]
+pub struct TransactionType(pub u8);
 
 struct TransactionTypeVisitor;
 
@@ -73,14 +29,14 @@ impl<'de> Visitor<'de> for TransactionTypeVisitor {
     type Value = TransactionType;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("hex string for transaction status")
+        formatter.write_str("hex string for integer")
     }
 
     fn visit_str<E>(self, value: &str) -> StdResult<Self::Value, E>
     where
         E: de::Error,
     {
-        TransactionType::from_str(value).map_err(|e| E::custom(e.to_string()))
+        TransactionType::decode_hex(value).map_err(|e| E::custom(e.to_string()))
     }
 }
 
@@ -98,17 +54,29 @@ impl Serialize for TransactionType {
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.as_str())
+        serializer.serialize_str(&self.encode_hex())
     }
 }
 
 impl Hex for TransactionType {
     fn encode_hex(&self) -> String {
-        self.as_str().to_owned()
+        encode_hex(&self.to_be_bytes())
     }
 
     fn decode_hex(hex: &str) -> Result<Self> {
-        Self::from_str(hex)
+        let value = hex
+            .strip_prefix("0x")
+            .ok_or_else(|| Error::InvalidHexPrefix(hex.to_owned()))?;
+
+        u8::from_str_radix(value, 16)
+            .map_err(|_| Error::DecodeNumberFromHex(hex.to_string()))
+            .map(Into::into)
+    }
+}
+
+impl fmt::Debug for TransactionType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "TransactionType({})", self.encode_hex())
     }
 }
 
@@ -118,17 +86,28 @@ mod tests {
     use serde_test::{assert_de_tokens, assert_tokens, Token};
 
     #[test]
-    fn test_serde() {
-        assert_tokens(&TransactionType::Script, &[Token::Str("0x0")]);
-        assert_tokens(&TransactionType::Create, &[Token::Str("0x1")]);
-        assert_tokens(&TransactionType::Mint, &[Token::Str("0x2")]);
-        assert_tokens(&TransactionType::Upgrade, &[Token::Str("0x3")]);
-        assert_tokens(&TransactionType::Upload, &[Token::Str("0x4")]);
+    fn test_serde_zero() {
+        assert_eq!(TransactionType::default(), TransactionType::from(0));
+
+        assert_tokens(&TransactionType::from(0), &[Token::Str("0x0")]);
     }
 
     #[test]
-    #[should_panic]
-    fn test_de_unknown() {
-        assert_de_tokens(&TransactionType::Script, &[Token::Str("0x3")]);
+    fn test_serde_max() {
+        assert_tokens(&TransactionType::from(u8::MAX), &[Token::Str("0xff")]);
+    }
+
+    #[test]
+    fn test_serde() {
+        assert_tokens(&TransactionType::from(19), &[Token::Str("0x13")]);
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid Number from Hex")]
+    fn test_serde_overflow() {
+        assert_de_tokens(
+            &TransactionType::from(19),
+            &[Token::Str("0xffffffffffffffffa")],
+        );
     }
 }

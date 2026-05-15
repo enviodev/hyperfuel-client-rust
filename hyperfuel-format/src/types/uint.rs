@@ -7,7 +7,6 @@ use std::result::Result as StdResult;
 use std::str::FromStr;
 
 #[derive(
-    Debug,
     Default,
     Clone,
     Copy,
@@ -34,6 +33,27 @@ impl FromStr for UInt {
         u64::from_str_radix(value, 16)
             .map_err(|e| Error::DecodeNumberFromHex(e.to_string()))
             .map(Into::into)
+    }
+}
+
+#[cfg(feature = "ethers")]
+impl From<ethabi::ethereum_types::U64> for UInt {
+    fn from(value: ethabi::ethereum_types::U64) -> Self {
+        value.0[0].into()
+    }
+}
+
+#[cfg(feature = "ethers")]
+impl From<UInt> for ethabi::ethereum_types::U64 {
+    fn from(value: UInt) -> Self {
+        value.0.into()
+    }
+}
+
+#[cfg(feature = "ethers")]
+impl From<UInt> for ethabi::ethereum_types::U256 {
+    fn from(value: UInt) -> Self {
+        value.0.into()
     }
 }
 
@@ -82,6 +102,12 @@ impl Hex for UInt {
     }
 }
 
+impl fmt::Debug for UInt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "UInt({})", self.encode_hex())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::UInt;
@@ -96,10 +122,7 @@ mod tests {
 
     #[test]
     fn test_serde_max() {
-        assert_tokens(
-            &UInt::from(std::u64::MAX),
-            &[Token::Str("0xffffffffffffffff")],
-        );
+        assert_tokens(&UInt::from(u64::MAX), &[Token::Str("0xffffffffffffffff")]);
     }
 
     #[test]

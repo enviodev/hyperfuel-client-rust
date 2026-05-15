@@ -13,16 +13,18 @@ pub enum Error {
     UnknownTransactionStatus(String),
     #[error("Unknown transaction type: {0}")]
     UnknownTransactionType(String),
+    #[error("Unexpected quantity. Value was: {0}")]
+    UnexpectedQuantity(String),
+    #[error("Invalid Number from Hex. {0}")]
+    DecodeNumberFromHex(String),
+    #[error("Invalid Bloom Filter from bytes")]
+    BloomFilterFromBytes,
     #[error("Unknown receipt type: {0}")]
     UnknownReceiptType(String),
     #[error("Unknown input type: {0}")]
     UnknownInputType(String),
     #[error("Unknown output type: {0}")]
     UnknownOutputType(String),
-    #[error("Unexpected quantity. Value was: {0}")]
-    UnexpectedQuantity(String),
-    #[error("Invalid Number from Hex. {0}")]
-    DecodeNumberFromHex(String),
 }
 
 pub type Result<T> = StdResult<T, Error>;

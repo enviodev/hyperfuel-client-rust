@@ -33,7 +33,7 @@ use url::Url;
 #[tokio::main]
 async fn main() {
     let client_config = ClientConfig {
-        url: Some(Url::parse("https://fuel-15.hypersync.xyz").unwrap()),
+        url: Some(Url::parse("https://fuel.hypersync.xyz").unwrap()),
         ..Default::default()
     };
     let client = Client::new(client_config).unwrap();

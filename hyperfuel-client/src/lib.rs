@@ -209,47 +209,6 @@ impl Client {
         })
     } */
 
-    /*
-    /// Retrieves events through a stream using the provided query and stream configuration.
-    pub async fn collect_events(
-        self: Arc<Self>,
-        mut query: Query,
-        config: StreamConfig,
-    ) -> Result<EventResponse> {
-        check_simple_stream_params(&config)?;
-
-        add_event_join_fields_to_selection(&mut query);
-
-        let mut recv = stream::stream_arrow(self, query, config)
-            .await
-            .context("start stream")?;
-
-        let mut data = Vec::new();
-        let mut archive_height = None;
-        let mut next_block = 0;
-        let mut total_execution_time = 0;
-
-        while let Some(res) = recv.recv().await {
-            let res = res.context("get response")?;
-            let res: QueryResponse = QueryResponse::from(&res);
-            let events: Vec<Event> = res.data.into();
-
-            data.push(events);
-
-            archive_height = res.archive_height;
-            next_block = res.next_block;
-            total_execution_time += res.total_execution_time
-        }
-
-        Ok(EventResponse {
-            archive_height,
-            next_block,
-            total_execution_time,
-            data,
-            rollback_guard: None,
-        })
-    } */
-
     /// Retrieves blocks, transactions, traces, and logs in Arrow format through a stream using
     /// the provided query and stream configuration.
     pub async fn collect_arrow(
@@ -436,15 +395,7 @@ impl Client {
         let arrow_response = self.get_arrow(query).await.context("get data")?;
         Ok(QueryResponse::from(&arrow_response))
     }
-    /*
-       /// Add block, transaction and log fields selection to the query, executes it with retries
-       /// and returns the response.
-       pub async fn get_events(&self, mut query: Query) -> Result<EventResponse> {
-           add_event_join_fields_to_selection(&mut query);
-           let arrow_response = self.get_arrow(&query).await.context("get data")?;
-           Ok(EventResponse::from(&arrow_response))
-       }
-    */
+
     /// Executes query once and returns the result in (Arrow, size) format.
     async fn get_arrow_impl(&self, query: &Query) -> Result<(ArrowResponse, u64)> {
         let mut url = self.url.clone();
@@ -549,44 +500,6 @@ impl Client {
 
     //     Ok(rx)
     // }
-
-    /*
-    /// Add block, transaction and log fields selection to the query and spawns task to execute it,
-    /// returning data via a channel.
-    pub async fn stream_events(
-        self: Arc<Self>,
-        mut query: Query,
-        config: StreamConfig,
-    ) -> Result<mpsc::Receiver<Result<EventResponse>>> {
-        check_simple_stream_params(&config)?;
-
-        add_event_join_fields_to_selection(&mut query);
-
-        let (tx, rx): (_, mpsc::Receiver<Result<EventResponse>>) =
-            mpsc::channel(config.concurrency.unwrap_or(10));
-
-        let mut inner_rx = self
-            .stream_arrow(query, config)
-            .await
-            .context("start inner stream")?;
-
-        tokio::spawn(async move {
-            while let Some(resp) = inner_rx.recv().await {
-                let is_err = resp.is_err();
-                if tx
-                    .send(resp.map(|r| EventResponse::from(&r)))
-                    .await
-                    .is_err()
-                    || is_err
-                {
-                    return;
-                }
-            }
-        });
-
-        Ok(rx)
-    }
-    */
 
     /// Spawns task to execute query and return data via a channel in Arrow format.
     pub async fn stream_arrow(

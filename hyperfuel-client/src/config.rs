@@ -61,18 +61,13 @@ pub struct StreamConfig {
 }
 
 /// Determines format of Binary column
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum HexOutput {
     /// Binary column won't be formatted as hex
+    #[default]
     NoEncode,
     /// Binary column would be formatted as prefixed hex i.e. 0xdeadbeef
     Prefixed,
     /// Binary column would be formatted as non prefixed hex i.e. deadbeef
     NonPrefixed,
-}
-
-impl Default for HexOutput {
-    fn default() -> Self {
-        Self::NoEncode
-    }
 }

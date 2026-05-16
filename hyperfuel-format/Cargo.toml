@@ -2,7 +2,7 @@
 name = "hyperfuel-format"
 version = "4.0.1"
 edition = "2021"
-description = "evm format library"
+description = "fuel network format library"
 license = "MPL-2.0"
 
 [dependencies]
@@ -11,17 +11,10 @@ derive_more = { version = "1", features = ["full"] }
 faster-hex = "0.9"
 thiserror = "1"
 serde = { version = "1", features = ["derive"] }
-alloy-primitives = "0.8"
-sbbf-rs-safe = "0.3.2"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 nohash-hasher = "0.2.0"
-ethabi = { version = "18.0.0", features = ["parity-codec"] , optional = true}
-ethers = { version = "2.0.14", optional = true }
 
 [dev-dependencies]
 serde_test = "1"
 hex-literal = "0.4"
 serde_json = "1"
-
-[features]
-ethers = ["dep:ethers", "dep:ethabi"]

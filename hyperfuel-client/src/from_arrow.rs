@@ -1,9 +1,6 @@
 use polars_arrow::array::{BinaryArray, StaticArray, UInt64Array, UInt8Array, Utf8Array};
 
-use crate::{
-    // simple_types::{Block, Log, Trace, Transaction},
-    ArrowBatch,
-};
+use crate::ArrowBatch;
 
 use hyperfuel_format::{
     BlockHeader, Input, InputType, Output, OutputType, Receipt, ReceiptType, Transaction,

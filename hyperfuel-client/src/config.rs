@@ -4,12 +4,12 @@ use url::Url;
 
 use crate::ColumnMapping;
 
-/// Configuration for the hypersync client.
+/// Configuration for the HyperFuel client.
 #[derive(Default, Debug, Clone, Deserialize, Serialize)]
 pub struct ClientConfig {
-    /// HyperSync server URL.
+    /// HyperFuel server URL.
     pub url: Option<Url>,
-    /// HyperSync server bearer token.
+    /// HyperFuel server bearer token.
     pub bearer_token: Option<String>,
     /// Milliseconds to wait for a response before timing out.
     pub http_req_timeout_millis: Option<NonZeroU64>,
@@ -23,7 +23,7 @@ pub struct ClientConfig {
     pub retry_ceiling_ms: Option<u64>,
 }
 
-/// Config for hypersync event streaming.
+/// Config for HyperFuel streaming.
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct StreamConfig {
     /// Column mapping for stream function output.

@@ -1,10 +1,11 @@
 #![deny(missing_docs)]
-//! Hypersync client library for interacting with hypersync server.
+//! HyperFuel client library for querying a HyperFuel (HyperSync) server.
 
-use std::{num::NonZeroU64, sync::Arc, time::Duration};
+use std::{collections::BTreeSet, num::NonZeroU64, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Context, Result};
-use hyperfuel_net_types::{ArchiveHeight, ChainId, Query};
+use hyperfuel_format::Hash;
+use hyperfuel_net_types::{ArchiveHeight, ChainId, FieldSelection, Query, ReceiptSelection};
 use polars_arrow::{array::Array, record_batch::RecordBatchT as Chunk};
 use reqwest::Method;
 
@@ -14,7 +15,6 @@ mod from_arrow;
 mod parquet_out;
 mod parse_response;
 mod rayon_async;
-// pub mod simple_types;
 mod stream;
 mod types;
 mod util;
@@ -25,14 +25,15 @@ pub use hyperfuel_net_types as net_types;
 pub use hyperfuel_schema as schema;
 
 use parse_response::parse_query_response;
-// use simple_types::Event;
 use tokio::sync::mpsc;
 use url::Url;
 
 pub use column_mapping::{ColumnMapping, DataType};
 pub use config::HexOutput;
 pub use config::{ClientConfig, StreamConfig};
-pub use types::{ArrowBatch, ArrowResponse, ArrowResponseData, QueryResponse};
+pub use types::{
+    ArrowBatch, ArrowResponse, ArrowResponseData, LogContext, LogResponse, QueryResponse,
+};
 
 /// ArrowChunk
 pub type ArrowChunk = Chunk<Box<dyn Array>>;
@@ -42,9 +43,9 @@ pub type ArrowChunk = Chunk<Box<dyn Array>>;
 pub struct Client {
     /// Initialized reqwest instance for client url.
     http_client: reqwest::Client,
-    /// HyperSync server URL.
+    /// HyperFuel server URL.
     url: Url,
-    /// HyperSync server bearer token.
+    /// HyperFuel server bearer token.
     bearer_token: Option<String>,
     /// Number of retries to attempt before returning error.
     max_num_retries: usize,
@@ -65,7 +66,10 @@ impl Client {
 
         let http_client = reqwest::Client::builder()
             .no_gzip()
+            .http1_only()
             .timeout(Duration::from_millis(timeout.get()))
+            .tcp_keepalive(Duration::from_secs(7200))
+            .connect_timeout(Duration::from_millis(timeout.get()))
             .build()
             .unwrap();
 
@@ -73,12 +77,79 @@ impl Client {
             http_client,
             url: cfg
                 .url
-                .unwrap_or("https://eth.hypersync.xyz".parse().context("parse url")?),
+                .unwrap_or("https://fuel.hypersync.xyz".parse().context("parse url")?),
             bearer_token: cfg.bearer_token,
             max_num_retries: cfg.max_num_retries.unwrap_or(12),
             retry_backoff_ms: cfg.retry_backoff_ms.unwrap_or(500),
             retry_base_ms: cfg.retry_base_ms.unwrap_or(200),
             retry_ceiling_ms: cfg.retry_ceiling_ms.unwrap_or(5_000),
+        })
+    }
+
+    /// Returns Log and LogData receipts emitted by any of the given contracts in the block range.
+    ///
+    /// If `to_block` is omitted, the query runs to the chain head. The response includes the fields
+    /// needed to decode Fuel Log / LogData receipts plus contextual columns. Receipts from failed
+    /// transactions are not included.
+    ///
+    /// **Note:** experimental API; may change in future releases.
+    pub async fn preset_query_get_logs<H: Into<Hash>>(
+        &self,
+        emitting_contracts: Vec<H>,
+        from_block: u64,
+        to_block: Option<u64>,
+    ) -> Result<LogResponse> {
+        let mut receipt_field_selection = BTreeSet::new();
+        receipt_field_selection.insert("block_height".to_owned());
+        receipt_field_selection.insert("tx_id".to_owned());
+        receipt_field_selection.insert("tx_status".to_owned());
+        receipt_field_selection.insert("receipt_index".to_owned());
+        receipt_field_selection.insert("receipt_type".to_owned());
+        receipt_field_selection.insert("contract_id".to_owned());
+        receipt_field_selection.insert("root_contract_id".to_owned());
+        receipt_field_selection.insert("ra".to_owned());
+        receipt_field_selection.insert("rb".to_owned());
+        receipt_field_selection.insert("rc".to_owned());
+        receipt_field_selection.insert("rd".to_owned());
+        receipt_field_selection.insert("pc".to_owned());
+        receipt_field_selection.insert("is".to_owned());
+        receipt_field_selection.insert("ptr".to_owned());
+        receipt_field_selection.insert("len".to_owned());
+        receipt_field_selection.insert("digest".to_owned());
+        receipt_field_selection.insert("data".to_owned());
+
+        let emitting_contracts: Vec<Hash> =
+            emitting_contracts.into_iter().map(|c| c.into()).collect();
+        let query = Query {
+            from_block,
+            to_block,
+            receipts: vec![ReceiptSelection {
+                root_contract_id: emitting_contracts.clone(),
+                receipt_type: vec![5, 6],
+                tx_status: vec![1],
+                ..Default::default()
+            }],
+            field_selection: FieldSelection {
+                receipt: receipt_field_selection,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let res = self.get(&query).await.context("get data")?;
+        let logs: Vec<LogContext> = res
+            .data
+            .receipts
+            .into_iter()
+            .flatten()
+            .map(Into::into)
+            .collect();
+
+        Ok(LogResponse {
+            archive_height: res.archive_height,
+            next_block: res.next_block,
+            total_execution_time: res.total_execution_time,
+            data: logs,
         })
     }
 

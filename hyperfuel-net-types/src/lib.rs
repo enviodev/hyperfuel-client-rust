@@ -1,4 +1,3 @@
-#![allow(clippy::needless_lifetimes)]
 use std::collections::BTreeSet;
 
 use hyperfuel_format::{FixedSizeData, Hash};
@@ -84,44 +83,64 @@ pub struct OutputSelection {
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Query {
+    /// The block to start the query from.
     pub from_block: u64,
+    /// The block to end the query at. If not specified, the query will go until the
+    /// end of data. Exclusive: the returned range will be `[from_block..to_block)`.
+    ///
+    /// The query will return before it reaches this target block if it hits the time limit
+    /// configured on the server. The user should continue their query by putting the
+    /// `next_block` field from the response into `from_block` on the next query (pagination).
     pub to_block: Option<u64>,
+    /// List of receipt selections: the query returns receipts that match any of these selections,
+    /// and receipts that are related to the returned objects.
     #[serde(default)]
     pub receipts: Vec<ReceiptSelection>,
+    /// List of input selections: the query returns inputs that match any of these selections,
+    /// and inputs that are related to the returned objects.
     #[serde(default)]
     pub inputs: Vec<InputSelection>,
+    /// List of output selections: the query returns outputs that match any of these selections,
+    /// and outputs that are related to the returned objects.
     #[serde(default)]
     pub outputs: Vec<OutputSelection>,
+    /// Whether to include all blocks regardless of whether they are related to a returned
+    /// transaction or receipt. Normally the server returns only blocks tied to rows in the
+    /// response. If this is `true`, the server returns data for every block in the requested
+    /// range `[from_block, to_block)`.
     #[serde(default)]
     pub include_all_blocks: bool,
+    /// Field selection: choose which columns to fetch. Requesting fewer fields speeds up queries
+    /// and reduces payload size, so prefer a minimal selection.
     #[serde(default)]
     pub field_selection: FieldSelection,
+    /// Maximum number of blocks to return. The server may return slightly more than this cap.
     #[serde(default)]
     pub max_num_blocks: Option<usize>,
+    /// Maximum number of transactions to return. The server may return slightly more than this cap.
     #[serde(default)]
     pub max_num_transactions: Option<usize>,
+    /// Maximum number of receipts to return. The server may return slightly more than this cap.
     #[serde(default)]
-    // The below 4 fields were not in the original fuel-client
     pub max_num_receipts: Option<usize>,
+    /// Maximum number of inputs to return. The server may return slightly more than this cap.
     #[serde(default)]
     pub max_num_inputs: Option<usize>,
+    /// Maximum number of outputs to return. The server may return slightly more than this cap.
     #[serde(default)]
     pub max_num_outputs: Option<usize>,
+    /// How the server joins related rows when resolving the query (for example transactions
+    /// linked to matching receipts). `Default` uses the server's default join behavior.
     #[serde(default)]
     pub join_mode: JoinMode,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Copy)]
+#[derive(Default, Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Copy)]
 pub enum JoinMode {
+    #[default]
     Default,
     JoinAll,
     JoinNothing,
-}
-
-impl Default for JoinMode {
-    fn default() -> Self {
-        Self::Default
-    }
 }
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]

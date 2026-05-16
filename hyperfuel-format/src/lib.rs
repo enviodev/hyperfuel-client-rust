@@ -1,4 +1,3 @@
-#![allow(clippy::needless_lifetimes)]
 mod error;
 mod types;
 

@@ -11,7 +11,6 @@ mod transaction_status;
 mod transaction_type;
 mod uint;
 mod util;
-mod withdrawal;
 
 pub use data::Data;
 pub use fixed_size_data::FixedSizeData;

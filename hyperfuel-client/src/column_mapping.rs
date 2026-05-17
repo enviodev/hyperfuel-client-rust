@@ -26,13 +26,13 @@ pub struct ColumnMapping {
     /// Mapping for transaction data.
     #[serde(default)]
     pub transaction: BTreeMap<String, DataType>,
-    /// Mapping for log data.
+    /// Mapping for receipt data.
     #[serde(default)]
     pub receipt: BTreeMap<String, DataType>,
-    /// Mapping for trace data.
+    /// Mapping for input data.
     #[serde(default)]
     pub input: BTreeMap<String, DataType>,
-    /// Mapping for decoded log data.
+    /// Mapping for output data.
     #[serde(default)]
     pub output: BTreeMap<String, DataType>,
 }
@@ -85,7 +85,7 @@ pub fn apply_to_batch(
                             .context(format!("apply cast to column '{}'", field.name))?
                     } else {
                         map_column(&**col, dt)
-                            .context(format!("apply cast to colum '{}'", field.name))?
+                            .context(format!("apply cast to column '{}'", field.name))?
                     }
                 }
                 None => col.clone(),

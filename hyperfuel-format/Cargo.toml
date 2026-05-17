@@ -1,6 +1,6 @@
 [package]
 name = "hyperfuel-format"
-version = "4.0.1"
+version = "4.1.0"
 edition = "2021"
 description = "fuel network format library"
 license = "MPL-2.0"

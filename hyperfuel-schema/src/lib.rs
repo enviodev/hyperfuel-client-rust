@@ -8,7 +8,7 @@ use polars_arrow::record_batch::RecordBatchT as Chunk;
 
 mod util;
 
-pub use util::project_schema;
+pub use util::{project_schema, try_project_schema};
 
 pub type ArrowChunk = Chunk<Box<dyn Array>>;
 

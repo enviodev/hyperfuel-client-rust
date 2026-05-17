@@ -1,6 +1,6 @@
 [package]
 name = "hyperfuel-schema"
-version = "4.0.0"
+version = "4.1.0"
 edition = "2021"
 description = "schema utilities for hyperfuel"
 license = "MPL-2.0"

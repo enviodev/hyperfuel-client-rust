@@ -28,7 +28,12 @@ fn read_chunks(bytes: &[u8]) -> Result<Vec<ArrowBatch>> {
 
 pub fn parse_query_response(bytes: &[u8]) -> Result<ArrowResponse> {
     let mut opts = capnp::message::ReaderOptions::new();
-    opts.nesting_limit(i32::MAX).traversal_limit_in_words(None);
+    // Bounded limits for untrusted network input. Default capnp limits are 64
+    // nesting / 64 MiB traversal; we raise the traversal cap to 512 MiB (64M
+    // words * 8 bytes/word) to fit large paginated arrow payloads. Callers
+    // hitting this should reduce per-query block ranges via max_num_blocks.
+    opts.nesting_limit(64)
+        .traversal_limit_in_words(Some(64 * 1024 * 1024));
     let message_reader =
         capnp::serialize_packed::read_message(bytes, opts).context("create message reader")?;
 

@@ -1,6 +1,6 @@
 [package]
 name = "hyperfuel-net-types"
-version = "4.0.3"
+version = "4.1.0"
 edition = "2021"
 description = "hyperfuel types for transport over network"
 license = "MPL-2.0"

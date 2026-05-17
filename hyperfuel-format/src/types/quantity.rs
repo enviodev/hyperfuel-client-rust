@@ -219,6 +219,9 @@ mod tests {
         assert_eq!(Quantity::from(0u64), Quantity::default());
         assert_eq!(Quantity::from(5u64), Quantity::from(vec![5]));
         assert_eq!(Quantity::from(0x4200u64), Quantity::from(hex!("4200")));
-        assert_eq!(Quantity::from(u64::MAX), Quantity::from(hex!("ffffffffffffffff")));
+        assert_eq!(
+            Quantity::from(u64::MAX),
+            Quantity::from(hex!("ffffffffffffffff"))
+        );
     }
 }

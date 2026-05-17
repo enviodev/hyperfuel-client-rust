@@ -26,7 +26,12 @@ impl From<Vec<u8>> for Quantity {
 
 impl From<u64> for Quantity {
     fn from(value: u64) -> Self {
-        Self(value.to_be_bytes().into())
+        if value == 0 {
+            return Quantity::default();
+        }
+        let bytes = value.to_be_bytes();
+        let first_non_zero = bytes.iter().position(|b| *b != 0).unwrap();
+        Self(bytes[first_non_zero..].to_vec().into())
     }
 }
 
@@ -207,5 +212,13 @@ mod tests {
     #[should_panic]
     fn test_from_slice_leading_zeroes() {
         let _ = Quantity::from(vec![0, 1].as_slice());
+    }
+
+    #[test]
+    fn test_from_u64_canonical() {
+        assert_eq!(Quantity::from(0u64), Quantity::default());
+        assert_eq!(Quantity::from(5u64), Quantity::from(vec![5]));
+        assert_eq!(Quantity::from(0x4200u64), Quantity::from(hex!("4200")));
+        assert_eq!(Quantity::from(u64::MAX), Quantity::from(hex!("ffffffffffffffff")));
     }
 }

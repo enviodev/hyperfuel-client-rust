@@ -261,7 +261,7 @@ impl Client {
 
         let height: ArchiveHeight = res.json().await.context("read response body json")?;
 
-        Ok(height.height.unwrap_or(0))
+        height.height.context("missing height in response")
     }
 
     /// Get the chain_id from the server with retries.
@@ -367,12 +367,15 @@ impl Client {
         }
 
         let bytes = res.bytes().await.context("read response body bytes")?;
+        let byte_len = bytes.len();
 
-        let res = tokio::task::block_in_place(|| {
+        let res = tokio::task::spawn_blocking(move || {
             parse_query_response(&bytes).context("parse query response")
-        })?;
+        })
+        .await
+        .context("join parse task")??;
 
-        Ok((res, bytes.len().try_into().unwrap()))
+        Ok((res, byte_len.try_into().unwrap()))
     }
 
     /// Executes query with retries and returns the response in Arrow format.

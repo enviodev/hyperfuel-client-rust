@@ -1,0 +1,11 @@
+[package]
+name = "simple-logs"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+hex-literal = "0.4.1"
+hyperfuel-client = { path = "../../hyperfuel-client" }
+tokio = { version = "1", features = ["full"] }
+url = "2.5.0"

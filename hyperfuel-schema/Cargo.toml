@@ -1,12 +1,10 @@
 [package]
 name = "hyperfuel-schema"
-version = "3.0.0"
+version = "4.0.0"
 edition = "2021"
 description = "schema utilities for hyperfuel"
-license = "MIT"
+license = "MPL-2.0"
 
 [dependencies]
 anyhow = "1"
-arrow2 = { version = "0.18", default_features = false, features = [
-    "compute_concatenate",
-] }
+polars-arrow = { version = "0.42", features = ["compute_cast"] }

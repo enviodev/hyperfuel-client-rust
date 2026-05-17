@@ -1,4 +1,4 @@
-name: Publish to crates.io 
+name: Publish to crates.io
 
 permissions:
   contents: read
@@ -10,17 +10,17 @@ on:
         description: "The crate name to publish"
         required: true
         type: choice
-        options: 
-        - hyperfuel-format
-        - hyperfuel-schema
-        - hyperfuel-net-types
-        - hyperfuel-client
+        options:
+          - hyperfuel-format
+          - hyperfuel-schema
+          - hyperfuel-net-types
+          - hyperfuel-client
 
 run-name: "Publish ${{ inputs.crate_name }} to crates.io"
 
 jobs:
   publish_crates:
-    name: Publish to crates.io 
+    name: Publish to crates.io
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -28,8 +28,8 @@ jobs:
 
       - name: Install Dependencies
         run: |
-            export DEBIAN_FRONTEND=noninteractive
-            sudo apt-get install -y capnproto libcapnp-dev
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get install -y capnproto libcapnp-dev
 
       - uses: actions/checkout@v2
       - name: Run publish script

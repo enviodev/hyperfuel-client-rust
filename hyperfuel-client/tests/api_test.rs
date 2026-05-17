@@ -1,518 +1,522 @@
-use std::collections::BTreeSet;
+// use std::{collections::BTreeSet, env::temp_dir, sync::Arc};
 
-use arrow2::array::UInt64Array;
-use hyperfuel_client::{Client, Config};
+// use alloy_json_abi::JsonAbi;
+// use hypersync_client::{
+//     preset_query, simple_types::Transaction, Client, ClientConfig, ColumnMapping, StreamConfig,
+// };
+// use hypersync_format::{Address, FilterWrapper, Hex, LogArgument};
+// use hypersync_net_types::{FieldSelection, Query, TransactionSelection};
+// use polars_arrow::array::UInt64Array;
 
-use hyperfuel_format::FixedSizeData;
-use hyperfuel_net_types::{FieldSelection, Query};
+// #[tokio::test(flavor = "multi_thread")]
+// #[ignore]
+// async fn test_api_arrow_ipc() {
+//     let client = Client::new(ClientConfig::default()).unwrap();
 
-const URL: &str = "https://fuel-15.hypersync.xyz";
+//     let mut block_field_selection = BTreeSet::new();
+//     block_field_selection.insert("number".to_owned());
+//     block_field_selection.insert("timestamp".to_owned());
+//     block_field_selection.insert("hash".to_owned());
 
-#[tokio::test(flavor = "multi_thread")]
-#[ignore]
-async fn test_api_arrow_ipc() {
-    let client = Client::new(Config {
-        url: URL.parse().unwrap(),
-        bearer_token: None,
-        http_req_timeout_millis: 20000.try_into().unwrap(),
-    })
-    .unwrap();
+//     let res = client
+//         .get_arrow(&Query {
+//             from_block: 14000000,
+//             to_block: None,
+//             logs: Vec::new(),
+//             transactions: Vec::new(),
+//             include_all_blocks: true,
+//             field_selection: FieldSelection {
+//                 block: block_field_selection,
+//                 log: Default::default(),
+//                 transaction: Default::default(),
+//                 trace: Default::default(),
+//             },
+//             ..Default::default()
+//         })
+//         .await
+//         .unwrap();
 
-    let mut block_field_selection = BTreeSet::new();
-    block_field_selection.insert("height".to_owned());
-    block_field_selection.insert("id".to_owned());
-    block_field_selection.insert("time".to_owned());
+//     dbg!(res.next_block);
+// }
 
-    let res = client
-        .get_arrow_data(&Query {
-            from_block: 20000,
-            to_block: Some(30000),
-            receipts: Vec::new(),
-            include_all_blocks: true,
-            field_selection: FieldSelection {
-                block: block_field_selection,
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .await
-        .unwrap();
+// #[tokio::test(flavor = "multi_thread")]
+// #[ignore]
+// async fn test_api_arrow_ipc_ordering() {
+//     let client = Client::new(ClientConfig::default()).unwrap();
 
-    let num_blocks: usize = res
-        .data
-        .blocks
-        .iter()
-        .map(|batch| batch.column::<UInt64Array>("height").unwrap().len())
-        .sum();
+//     let mut block_field_selection = BTreeSet::new();
+//     block_field_selection.insert("number".to_owned());
 
-    assert!(num_blocks == 10000);
-    assert!(res.next_block >= 30000);
-}
+//     let query: Query = serde_json::from_value(serde_json::json!({
+//         "from_block": 13171881,
+//         "to_block": 18270333,
+//         "logs": [
+//             {
+//                 "address": [
+//                     "0x15b7c0c907e4C6b9AdaAaabC300C08991D6CEA05"
+//                 ],
+//                 "topics": [
+//                     [
+//                         "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+//                         "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+//                     ]
+//                 ]
+//             }
+//         ],
+//         "field_selection": {
+//             "block": [
+//                 "number"
+//             ],
+//             "log": [
+//                 "log_index",
+//                 "block_number"
+//             ]
+//         }
+//     }))
+//     .unwrap();
 
-#[tokio::test(flavor = "multi_thread")]
-#[ignore]
-async fn test_get_height() {
-    let client = Client::new(Config {
-        url: URL.parse().unwrap(),
-        bearer_token: None,
-        http_req_timeout_millis: 20000.try_into().unwrap(),
-    })
-    .unwrap();
+//     let res = client.get_arrow(&query).await.unwrap();
 
-    let height = client.get_height().await.unwrap();
+//     assert!(res.next_block > 13223105);
 
-    assert!(height > 10136503)
-}
+//     let mut last = (0, 0);
+//     for batch in res.data.logs {
+//         let block_number = batch.column::<UInt64Array>("block_number").unwrap();
+//         let log_index = batch.column::<UInt64Array>("log_index").unwrap();
 
-#[tokio::test(flavor = "multi_thread")]
-#[ignore]
-async fn test_json_query_struct() {
-    let client = Client::new(Config {
-        url: URL.parse().unwrap(),
-        bearer_token: None,
-        http_req_timeout_millis: 20000.try_into().unwrap(),
-    })
-    .unwrap();
+//         for (&block_number, &log_index) in block_number.values_iter().zip(log_index.values_iter()) {
+//             let number = (block_number, log_index);
+//             assert!(last < number, "last: {:?};number: {:?};", last, number);
+//             last = number;
+//         }
+//     }
+// }
 
-    let query: Query = serde_json::from_value(serde_json::json!({
-        "from_block": 10130504,
-        "to_block": 10130604,
-        "inputs": [{}],
-        "include_all_blocks": true,
-        "field_selection": {
-            "block": [
-                "height"
-            ],
-            "input": [
-                "tx_id",
-                "owner",
-                "block_height"
-            ]
-        }
-    }))
-    .unwrap();
+// fn get_file_path(name: &str) -> String {
+//     format!("{}/test-data/{name}", env!("CARGO_MANIFEST_DIR"))
+// }
 
-    let res = client.get_arrow_data(&query).await.unwrap();
-    let num_blocks: usize = res
-        .data
-        .blocks
-        .iter()
-        .map(|batch| batch.column::<UInt64Array>("height").unwrap().len())
-        .sum();
-    let num_inputs: usize = res
-        .data
-        .inputs
-        .iter()
-        .map(|batch| batch.column::<UInt64Array>("block_height").unwrap().len())
-        .sum();
+// #[tokio::test(flavor = "multi_thread")]
+// #[ignore]
+// async fn test_api_decode_logs() {
+//     env_logger::try_init().ok();
 
-    assert!(num_inputs > 0);
-    assert!(num_blocks == 100);
-    assert!(res.next_block >= 30000);
-}
+//     const ADDR: &str = "0xc18360217d8f7ab5e7c516566761ea12ce7f9d72";
 
-#[tokio::test(flavor = "multi_thread")]
-#[ignore]
-async fn test_api_arrow_ipc_ordering() {
-    let client = Client::new(Config {
-        url: URL.parse().unwrap(),
-        bearer_token: None,
-        http_req_timeout_millis: 20000.try_into().unwrap(),
-    })
-    .unwrap();
+//     let client = Arc::new(Client::new(ClientConfig::default()).unwrap());
 
-    let query = Query {
-        from_block: 20001,
-        to_block: Some(30000),
-        receipts: Vec::new(),
-        field_selection: FieldSelection {
-            block: maplit::btreeset! {
-                "height".to_owned(), "time".to_owned(), "id".to_owned(),
-            },
-            input: maplit::btreeset! {
-                "tx_id".to_owned(), "block_height".to_owned(), "owner".to_owned(),
+//     let query: Query = serde_json::from_value(serde_json::json!({
+//         "from_block": 18680952,
+//         "to_block": 18680953,
+//         "logs": [
+//             {
+//                 "address": [
+//                     ADDR
+//                 ]
+//             }
+//         ],
+//         "field_selection": {
+//             "log": [
+//                 "address",
+//                 "data",
+//                 "topic0",
+//                 "topic1",
+//                 "topic2",
+//                 "topic3"
+//             ]
+//         }
+//     }))
+//     .unwrap();
 
-            },
-            ..Default::default()
-        },
-        ..Default::default()
-    };
+//     let mut rx = client
+//         .stream_arrow(
+//             query,
+//             StreamConfig {
+//                 event_signature: Some(
+//                     "Transfer(address indexed from, address indexed to, uint indexed amount)"
+//                         .into(),
+//                 ),
+//                 ..Default::default()
+//             },
+//         )
+//         .await
+//         .unwrap();
 
-    let res = client.get_arrow_data(&query).await.unwrap();
+//     let res = rx.recv().await.unwrap().unwrap();
 
-    assert!(res.next_block >= 30000);
+//     let decoded_logs = res.data.decoded_logs;
 
-    let mut last = 0;
-    for batch in res.data.inputs {
-        let block_number = batch.column::<UInt64Array>("block_height").unwrap();
+//     dbg!(res.data.logs);
 
-        for &block_number in block_number.values_iter() {
-            assert!(
-                last < block_number,
-                "last: {:?};number: {:?};",
-                last,
-                block_number
-            );
-            last = block_number;
-        }
-    }
-}
+//     assert_eq!(decoded_logs[0].chunk.len(), 1);
 
-#[tokio::test(flavor = "multi_thread")]
-#[ignore]
-async fn test_get_data() {
-    let client = Client::new(Config {
-        url: URL.parse().unwrap(),
-        bearer_token: None,
-        http_req_timeout_millis: 20000.try_into().unwrap(),
-    })
-    .unwrap();
+//     println!("{:?}", decoded_logs[0]);
+// }
 
-    let query: Query = serde_json::from_value(serde_json::json!({
-        "from_block": 10130503,
-        "to_block": 10130604,
-        "inputs": [{}],
-        "include_all_blocks": true,
-        "field_selection": {
-            "block": [
-                "height"
-            ],
-            "input": [
-                "tx_id",
-                "owner",
-                "block_height"
-            ]
-        }
-    }))
-    .unwrap();
+// #[test]
+// fn parse_nameless_abi() {
+//     let path = get_file_path("nameless.abi.json");
+//     let abi = std::fs::read_to_string(path).unwrap();
+//     let _abi: JsonAbi = serde_json::from_str(&abi).unwrap();
+// }
 
-    let res = client.get_data(&query).await.unwrap();
+// #[tokio::test(flavor = "multi_thread")]
+// #[ignore]
+// async fn test_get_events_without_join_fields() {
+//     env_logger::try_init().ok();
 
-    assert!(res.data.outputs.is_empty());
-    assert!(!res.data.inputs.is_empty());
-    assert!(!res.data.blocks.is_empty());
-}
+//     let client = Client::new(ClientConfig {
+//         url: Some("https://base.hypersync.xyz".parse().unwrap()),
+//         ..Default::default()
+//     })
+//     .unwrap();
 
-#[tokio::test(flavor = "multi_thread")]
-#[ignore]
-async fn test_get_selected_data() {
-    let client = Client::new(Config {
-        url: URL.parse().unwrap(),
-        bearer_token: None,
-        http_req_timeout_millis: 20000.try_into().unwrap(),
-    })
-    .unwrap();
+//     let query: Query = serde_json::from_value(serde_json::json!({
+//         "from_block": 6589327,
+//         "to_block": 6589328,
+//         "logs": [{
+//             "address": ["0xd981ed72b1b3bf866563a9755d41a887d3e4721a"],
+//             "topics": [["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]],
+//         }],
+//         "field_selection": {
+//             "log": ["block_number", "topic0", "topic1", "topic2", "topic3", "data", "address"],
+//             "transaction": ["value"],
+//             "block": ["gas_used"],
+//         }
+//     }))
+//     .unwrap();
 
-    let query: Query = serde_json::from_value(serde_json::json!({
-        "from_block": 10100503,
-        "to_block": 10130604,
-        "receipts": [
-            {"receipt_type": [6]},
-            {"receipt_type": [5]}
-        ],
-        "include_all_blocks": true,
-        "field_selection": {
-            "receipt": [
-                "tx_id",
-                "block_height",
-                "receipt_type"
-            ]
-        }
-    }))
-    .unwrap();
+//     let res = client.get_events(query).await.unwrap();
 
-    let res = client.get_selected_data(&query).await.unwrap();
-    assert!(res.data.receipts.len() > 1);
+//     dbg!(res.data);
+// }
 
-    assert!(res
-        .data
-        .receipts
-        .iter()
-        .all(|receipt| receipt.receipt_type.to_u8() == 6 || receipt.receipt_type.to_u8() == 5));
+// #[tokio::test(flavor = "multi_thread")]
+// #[ignore]
+// async fn test_stream_decode_with_invalid_log() {
+//     env_logger::try_init().ok();
 
-    let query: Query = serde_json::from_value(serde_json::json!({
-        "from_block": 10100503,
-        "to_block": 10130604,
-        "receipts": [
-            {"receipt_type": [6, 5]},
-        ],
-        "include_all_blocks": true,
-        "field_selection": {
-            "receipt": [
-                "tx_id",
-                "block_height",
-                "receipt_type"
-            ]
-        }
-    }))
-    .unwrap();
+//     let client = Client::new(ClientConfig {
+//         url: Some("https://base.hypersync.xyz".parse().unwrap()),
+//         ..Default::default()
+//     })
+//     .unwrap();
+//     let client = Arc::new(client);
 
-    let new_res = client.get_selected_data(&query).await.unwrap();
+//     let query: Query = serde_json::from_value(serde_json::json!({
+//         "from_block": 6589327,
+//         "to_block": 6589328,
+//         "logs": [{
+//             "address": ["0xd981ed72b1b3bf866563a9755d41a887d3e4721a"],
+//             "topics": [["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]],
+//         }],
+//         "field_selection": {
+//             "log": ["block_number", "topic0", "topic1", "topic2", "topic3", "data", "address"],
+//         }
+//     }))
+//     .unwrap();
 
-    assert_eq!(res.data.receipts, new_res.data.receipts);
+//     let data = client
+//         .collect_arrow(
+//             query,
+//             StreamConfig {
+//                 column_mapping: Some(ColumnMapping {
+//                     block: maplit::btreemap! {
+//                         "number".to_owned() => hypersync_client::DataType::Float32,
+//                     },
+//                     transaction: maplit::btreemap! {
+//                         "value".to_owned() => hypersync_client::DataType::Float64,
+//                     },
+//                     log: Default::default(),
+//                     trace: Default::default(),
+//                     decoded_log: maplit::btreemap! {
+//                         "amount".to_owned() => hypersync_client::DataType::Float64,
+//                     },
+//                 }),
+//                 event_signature: Some(
+//                     "Transfer(address indexed from, address indexed to, uint indexed amount)"
+//                         .into(),
+//                 ),
+//                 ..Default::default()
+//             },
+//         )
+//         .await
+//         .unwrap();
 
-    let query: Query = serde_json::from_value(serde_json::json!({
-        "from_block": 8076516,
-        "to_block":   8076517,
-        "receipts": [
-            {
-                "root_contract_id": ["0xff63ad3cdb5fde197dfa2d248330d458bffe631bda65938aa7ab7e37efa561d0"],
-                "receipt_type": [5, 6],
-                "ra": [0],
-                "rb": [0, 1, 2, 3]
-            }
-        ],
-        "field_selection": {
-            "receipt": [
-                "root_contract_id",
-                "receipt_type",
-                "ra", 
-                "rb"
-            ],
-            "input": [
-                "tx_id",
-                "owner"
-            ]
-        }
-    }))
-    .unwrap();
+//     dbg!(data);
+// }
 
-    let res = client.get_selected_data(&query).await.unwrap();
+// #[tokio::test(flavor = "multi_thread")]
+// #[ignore]
+// async fn test_parquet_out() {
+//     env_logger::try_init().ok();
 
-    let target_contract_id = Some(
-        hex_literal::hex!("ff63ad3cdb5fde197dfa2d248330d458bffe631bda65938aa7ab7e37efa561d0")
-            .into(),
-    );
+//     let client = Arc::new(Client::new(ClientConfig::default()).unwrap());
 
-    assert!(res.data.receipts.iter().all(|receipt| {
-        if !((receipt.receipt_type.to_u8() == 6 || receipt.receipt_type.to_u8() == 5)
-            && receipt.root_contract_id == target_contract_id
-            && vec![0, 1, 2, 3]
-                .into_iter()
-                .any(|tgt_rb| receipt.rb == Some(tgt_rb.into()))
-            && receipt.ra == Some(0.into()))
-        {
-            println!("{:?}", receipt);
-            false
-        } else {
-            true
-        }
-    }));
+//     let path = format!("{}/{}", temp_dir().to_string_lossy(), uuid::Uuid::new_v4());
 
-    assert!(!res.data.inputs.is_empty());
+//     let query: Query = serde_json::from_value(serde_json::json!({
+//         "from_block": 19277345,
+//         "to_block": 19277346,
+//         "logs": [{
+//             "address": ["0xdAC17F958D2ee523a2206206994597C13D831ec7"],
+//             "topics": [["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]],
+//         }],
+//         "transactions": [{}],
+//         "include_all_blocks": true,
+//         "field_selection": {
+//             "log": ["block_number", "topic0", "topic1", "topic2", "topic3", "data", "address"],
+//         }
+//     }))
+//     .unwrap();
 
-    let query: Query = serde_json::from_value(serde_json::json!({
-        "from_block": 4105960,
-                "to_block": 4106000,
-        "inputs": [
-            {
-                "owner": ["0x48a0f31c78e1c837ff6a885785ceb7c2090f86ed93db3ed2d8821d13739fe981"]
-            }
-        ],
-        "field_selection": {
-            "input": [
-                "tx_id",
-                "block_height",
-                "input_type",
-                "utxo_id",
-                "owner",
-                "amount",
-                "asset_id",
-                "predicate_gas_used",
-                "predicate",
-                "predicate_data"
-            ]
-        }
-    }))
-    .unwrap();
+//     client
+//         .collect_parquet(
+//             &path,
+//             query,
+//             StreamConfig {
+//                 column_mapping: Some(ColumnMapping {
+//                     block: maplit::btreemap! {
+//                         "number".to_owned() => hypersync_client::DataType::Float32,
+//                     },
+//                     transaction: maplit::btreemap! {
+//                         "value".to_owned() => hypersync_client::DataType::Float64,
+//                     },
+//                     log: Default::default(),
+//                     trace: Default::default(),
+//                     decoded_log: maplit::btreemap! {
+//                         //"amount".to_owned() => hypersync_client::DataType::Float64,
+//                     },
+//                 }),
+//                 event_signature: Some(
+//                     "Transfer(address indexed from, address indexed to, uint indexed amount)"
+//                         .into(),
+//                 ),
+//                 ..Default::default()
+//             },
+//         )
+//         .await
+//         .unwrap();
+// }
 
-    let res_inputs = client.get_selected_data(&query).await.unwrap();
+// #[tokio::test(flavor = "multi_thread")]
+// #[ignore]
+// async fn test_api_preset_query_blocks_and_transactions() {
+//     let client = Arc::new(Client::new(ClientConfig::default()).unwrap());
+//     let query = preset_query::blocks_and_transactions(18_000_000, Some(18_000_010));
+//     let res = client.get_arrow(&query).await.unwrap();
 
-    let target_owner = Some(
-        hex_literal::hex!("48a0f31c78e1c837ff6a885785ceb7c2090f86ed93db3ed2d8821d13739fe981")
-            .into(),
-    );
+//     let num_blocks: usize = res
+//         .data
+//         .blocks
+//         .into_iter()
+//         .map(|batch| batch.chunk.len())
+//         .sum();
+//     let num_txs: usize = res
+//         .data
+//         .transactions
+//         .into_iter()
+//         .map(|batch| batch.chunk.len())
+//         .sum();
 
-    assert!(res_inputs.data.inputs.len() == 1);
-    assert!(res_inputs
-        .data
-        .inputs
-        .iter()
-        .all(|input| input.owner == target_owner));
-}
+//     assert_eq!(res.next_block, 18_000_010);
+//     assert_eq!(num_blocks, 10);
+//     assert!(num_txs > 1);
+// }
 
-#[tokio::test(flavor = "multi_thread")]
-#[ignore]
-async fn test_preset_query_get_logs() {
-    let client = Client::new(Config {
-        url: URL.parse().unwrap(),
-        bearer_token: None,
-        http_req_timeout_millis: 20000.try_into().unwrap(),
-    })
-    .unwrap();
+// #[tokio::test(flavor = "multi_thread")]
+// #[ignore]
+// async fn test_api_preset_query_blocks_and_transaction_hashes() {
+//     let client = Client::new(ClientConfig::default()).unwrap();
+//     let query = preset_query::blocks_and_transaction_hashes(18_000_000, Some(18_000_010));
+//     let res = client.get_arrow(&query).await.unwrap();
 
-    let contract: FixedSizeData<32> =
-        hex_literal::hex!("ff63ad3cdb5fde197dfa2d248330d458bffe631bda65938aa7ab7e37efa561d0")
-            .into();
-    let res = client
-        .preset_query_get_logs(vec![contract.clone()], 8076516, Some(8076517))
-        .await
-        .unwrap();
+//     let num_blocks: usize = res
+//         .data
+//         .blocks
+//         .into_iter()
+//         .map(|batch| batch.chunk.len())
+//         .sum();
+//     let num_txs: usize = res
+//         .data
+//         .transactions
+//         .into_iter()
+//         .map(|batch| batch.chunk.len())
+//         .sum();
 
-    // failed transaction with logs from the contract (https://app.fuel.network/tx/0x835d678ac1388b0893d9caad1a3a33e2177c3de6923202dc4d1a88b2ab67ade8/simple)
-    let failed_txn: FixedSizeData<32> =
-        hex_literal::hex!("835d678ac1388b0893d9caad1a3a33e2177c3de6923202dc4d1a88b2ab67ade8")
-            .into();
+//     assert_eq!(res.next_block, 18_000_010);
+//     assert_eq!(num_blocks, 10);
+//     assert!(num_txs > 1);
+// }
 
-    assert!(res.data.iter().all(|log| {
-        (log.receipt_type.to_u8() == 5 || log.receipt_type.to_u8() == 6)
-            && (log.contract_id == Some(contract.clone())
-                || log.root_contract_id == Some(contract.clone()))
-            && log.tx_id != failed_txn
-    }));
+// #[tokio::test(flavor = "multi_thread")]
+// #[ignore]
+// async fn test_api_preset_query_logs() {
+//     let client = Client::new(ClientConfig::default()).unwrap();
 
-    assert!(res.data.len() == 4)
-}
+//     let usdt_addr = Address::decode_hex("0xdAC17F958D2ee523a2206206994597C13D831ec7").unwrap();
+//     let query = preset_query::logs(18_000_000, Some(18_000_010), usdt_addr);
+//     let res = client.get_arrow(&query).await.unwrap();
 
-#[tokio::test(flavor = "multi_thread")]
-#[ignore]
-async fn test_from_arrow_all_fields() {
-    let client = Client::new(Config {
-        url: URL.parse().unwrap(),
-        bearer_token: None,
-        http_req_timeout_millis: 20000.try_into().unwrap(),
-    })
-    .unwrap();
+//     let num_logs: usize = res
+//         .data
+//         .logs
+//         .into_iter()
+//         .map(|batch| batch.chunk.len())
+//         .sum();
 
-    let query: Query = serde_json::from_value(serde_json::json!({
-        "from_block": 10130503,
-        "to_block": 10130604,
-        "inputs": [{}],
-        "include_all_blocks": true,
-        "field_selection": {
-            "block": [
-                "id",
-                "da_height",
-                "transactions_count",
-                "message_receipt_count",
-                "transactions_root",
-                "message_receipt_root",
-                "height",
-                "prev_root",
-                "time",
-                "application_hash"
-            ],
-            "transaction": [
-                "block_height",
-                "id",
-                "input_asset_ids",
-                "input_contracts",
-                "input_contract_utxo_id",
-                "input_contract_balance_root",
-                "input_contract_state_root",
-                "input_contract_tx_pointer_block_height",
-                "input_contract_tx_pointer_tx_index",
-                "input_contract",
-                "gas_price",
-                "gas_limit",
-                "maturity",
-                "mint_amount",
-                "mint_asset_id",
-                "tx_pointer_block_height",
-                "tx_pointer_tx_index",
-                "tx_type",
-                "output_contract_input_index",
-                "output_contract_balance_root",
-                "output_contract_state_root",
-                "witnesses",
-                "receipts_root",
-                "status",
-                "time",
-                "reason",
-                "script",
-                "script_data",
-                "bytecode_witness_index",
-                "bytecode_length",
-                "salt"
-            ],
-            "receipt": [
-                "receipt_index",
-                "root_contract_id",
-                "tx_id",
-                "block_height",
-                "pc",
-                "is",
-                "to",
-                "to_address",
-                "amount",
-                "asset_id",
-                "gas",
-                "param1",
-                "param2",
-                "val",
-                "ptr",
-                "digest",
-                "reason",
-                "ra",
-                "rb",
-                "rc",
-                "rd",
-                "len",
-                "receipt_type",
-                "result",
-                "gas_used",
-                "data",
-                "sender",
-                "recipient",
-                "nonce",
-                "contract_id",
-                "sub_id"
-            ],
-            "input": [
-                "tx_id",
-                "block_height",
-                "input_type",
-                "utxo_id",
-                "owner",
-                "amount",
-                "asset_id",
-                "tx_pointer_block_height",
-                "tx_pointer_tx_index",
-                "witness_index",
-                "predicate_gas_used",
-                "predicate",
-                "predicate_data",
-                "balance_root",
-                "state_root",
-                "contract",
-                "sender",
-                "recipient",
-                "nonce",
-                "data"
-            ],
-            "output": [
-                "tx_id",
-                "block_height",
-                "output_type",
-                "to",
-                "amount",
-                "asset_id",
-                "input_index",
-                "balance_root",
-                "state_root",
-                "contract"
-            ]
-        }
-    }))
-    .unwrap();
+//     assert_eq!(res.next_block, 18_000_010);
+//     assert!(num_logs > 1);
+// }
 
-    let res = client.get_data(&query).await.unwrap();
+// #[tokio::test(flavor = "multi_thread")]
+// #[ignore]
+// async fn test_api_preset_query_logs_of_event() {
+//     let client = Client::new(ClientConfig::default()).unwrap();
 
-    assert!(!res.data.blocks.is_empty());
-    assert!(!res.data.transactions.is_empty());
-    assert!(!res.data.receipts.is_empty());
-    assert!(!res.data.inputs.is_empty());
-    assert!(!res.data.outputs.is_empty());
-}
+//     let usdt_addr = Address::decode_hex("0xdAC17F958D2ee523a2206206994597C13D831ec7").unwrap();
+//     let transfer_topic0 = LogArgument::decode_hex(
+//         "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+//     )
+//     .unwrap();
+//     let query =
+//         preset_query::logs_of_event(18_000_000, Some(18_000_010), transfer_topic0, usdt_addr);
 
-/* TODO: decoding */
+//     let res = client.get_arrow(&query).await.unwrap();
+
+//     let num_logs: usize = res
+//         .data
+//         .logs
+//         .into_iter()
+//         .map(|batch| batch.chunk.len())
+//         .sum();
+
+//     assert_eq!(res.next_block, 18_000_010);
+//     assert!(num_logs > 1);
+// }
+
+// #[tokio::test(flavor = "multi_thread")]
+// #[ignore]
+// async fn test_api_preset_query_transactions() {
+//     let client = Client::new(ClientConfig::default()).unwrap();
+//     let query = preset_query::transactions(18_000_000, Some(18_000_010));
+//     let res = client.get_arrow(&query).await.unwrap();
+
+//     let num_txs: usize = res
+//         .data
+//         .transactions
+//         .into_iter()
+//         .map(|batch| batch.chunk.len())
+//         .sum();
+
+//     assert_eq!(res.next_block, 18_000_010);
+//     assert!(num_txs > 1);
+// }
+
+// #[tokio::test(flavor = "multi_thread")]
+// #[ignore]
+// async fn test_api_preset_query_transactions_from_address() {
+//     let client = Client::new(ClientConfig::default()).unwrap();
+
+//     let vitalik_eth_addr =
+//         Address::decode_hex("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045").unwrap();
+//     let query =
+//         preset_query::transactions_from_address(19_000_000, Some(19_300_000), vitalik_eth_addr);
+//     let res = client.get_arrow(&query).await.unwrap();
+
+//     let num_txs: usize = res
+//         .data
+//         .transactions
+//         .into_iter()
+//         .map(|batch| batch.chunk.len())
+//         .sum();
+
+//     assert!(res.next_block == 19_300_000);
+//     assert!(num_txs == 21);
+// }
+
+// // same query as above (test_api_preset_query_transactions_from_address) except it uses a bloom filter instead of a
+// // vector of addresses to target the specified address
+// #[tokio::test(flavor = "multi_thread")]
+// #[ignore]
+// async fn test_small_bloom_filter_query() {
+//     let client = Arc::new(Client::new(ClientConfig::default()).unwrap());
+
+//     let vitalik_eth_addr =
+//         Address::decode_hex("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045").unwrap();
+
+//     let mut txn_field_selection = BTreeSet::new();
+//     txn_field_selection.insert("block_number".to_owned());
+//     txn_field_selection.insert("from".to_owned());
+//     txn_field_selection.insert("hash".to_owned());
+
+//     let addrs = [vitalik_eth_addr.clone()];
+//     let from_address_filter =
+//         FilterWrapper::from_keys(addrs.iter().map(|d| d.as_ref()), None).unwrap();
+
+//     let query = Query {
+//         from_block: 19_000_000,
+//         to_block: Some(19_300_000),
+//         logs: Vec::new(),
+//         transactions: vec![TransactionSelection {
+//             from_filter: Some(from_address_filter),
+//             ..Default::default()
+//         }],
+//         field_selection: FieldSelection {
+//             block: Default::default(),
+//             log: Default::default(),
+//             transaction: txn_field_selection,
+//             trace: Default::default(),
+//         },
+//         ..Default::default()
+//     };
+
+//     let stream_config = StreamConfig::default();
+
+//     let res = client.collect(query, stream_config).await.unwrap();
+
+//     let txns: Vec<Transaction> = res.data.transactions.into_iter().flatten().collect();
+//     let num_txns = txns.len();
+
+//     for txn in txns {
+//         if txn.from.as_ref() != Some(&vitalik_eth_addr) {
+//             panic!("returned an address not in the bloom filter")
+//         }
+//     }
+
+//     assert_eq!(res.next_block, 19_300_000);
+//     assert_eq!(num_txns, 21);
+// }
+
+// #[tokio::test(flavor = "multi_thread")]
+// #[ignore]
+// async fn test_decode_string_param_into_arrow() {
+//     let client = Arc::new(
+//         Client::new(ClientConfig {
+//             url: Some("https://mev-commit.hypersync.xyz".parse().unwrap()),
+//             ..Default::default()
+//         })
+//         .unwrap(),
+//     );
+
+//     let query: Query = serde_json::from_value(serde_json::json!({
+//         "from_block": 0,
+//         "logs": [{
+//             "address": ["0xCAC68D97a56b19204Dd3dbDC103CB24D47A825A3"],
+//             "topics": [["0xe44dd4d002deb2c79cf08ce285a9d80c69753f31ca65c8e49f0a60d27ed9fea3"]],
+//         }],
+//         "field_selection": {
+//             "log": ["block_number", "topic0", "topic1", "topic2", "topic3", "data", "address"],
+//         }
+//     }))
+//     .unwrap();
+
+//     let conf = StreamConfig {
+//         event_signature: Some("CommitmentStored(bytes32 indexed commitmentIndex, address bidder, address commiter, uint256 bid, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes32 commitmentHash, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)".into()),
+//         ..Default::default()
+//     };
+
+//     let data = client.collect_arrow(query, conf).await.unwrap();
+
+//     dbg!(data.data.decoded_logs);
+// }

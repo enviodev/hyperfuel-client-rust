@@ -1,13 +1,20 @@
+use super::Hex;
 use crate::{Error, Result};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::result::Result as StdResult;
 
-use super::Hex;
-
 #[derive(
-    Debug, Clone, PartialEq, Eq, Hash, derive_more::From, derive_more::Into, derive_more::Deref,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    derive_more::From,
+    derive_more::Into,
+    derive_more::Deref,
+    PartialOrd,
+    Ord,
 )]
 pub struct FixedSizeData<const N: usize>(Box<[u8; N]>);
 
@@ -114,6 +121,12 @@ fn decode_hex(value: &str) -> Result<Vec<u8>> {
         .ok_or_else(|| Error::InvalidHexPrefix(value.to_owned()))?;
 
     super::util::decode_hex(val).map_err(Error::DecodeHex)
+}
+
+impl<const N: usize> fmt::Debug for FixedSizeData<N> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "FixedSizeData<{}>({})", N, self.encode_hex())
+    }
 }
 
 #[cfg(test)]

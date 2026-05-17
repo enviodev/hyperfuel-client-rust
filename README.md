@@ -1,30 +1,40 @@
 # hyperfuel-client-rust
-Rust crate for [Envio's](https://envio.dev/) HyperFuel client
+
+[![CI](https://github.com/enviodev/hyperfuel-client-rust/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/enviodev/hyperfuel-client-rust/actions/workflows/ci.yaml)
+<a href="https://crates.io/crates/hyperfuel-client">
+<img src="https://img.shields.io/crates/v/hyperfuel-client.svg?style=flat-square"
+    alt="Crates.io version" />
+</a>
+
+Rust crate for [Envio's](https://envio.dev/) HyperFuel client.
 
 `$ cargo add hyperfuel-client`
+
+[Documentation Page](https://docs.envio.dev/docs/hypersync-clients)
 
 ### Dependencies
 
 Need to install capnproto tool in order to build the library. It can be installed like this on Ubuntu, Windows and MacOS in order:
+
 ```bash
 sudo apt-get install -y capnproto libcapnp-dev
 choco install capnproto
 brew install capnp
 ```
 
-# quickstart example
-```rust
-use std::num::NonZeroU64;
+### Quickstart example
 
-use hyperfuel_client::{Client, Config};
+Add [`hex-literal`](https://docs.rs/hex-literal) to your `Cargo.toml` if you use the `hex!` macro below.
+
+```rust
+use hyperfuel_client::{Client, ClientConfig};
 use url::Url;
 
 #[tokio::main]
 async fn main() {
-    let client_config = Config {
-        url: Url::parse("https://fuel-15.hypersync.xyz").unwrap(),
-        bearer_token: None,
-        http_req_timeout_millis: NonZeroU64::new(30000).unwrap(),
+    let client_config = ClientConfig {
+        url: Some(Url::parse("https://fuel.hypersync.xyz").unwrap()),
+        ..Default::default()
     };
     let client = Client::new(client_config).unwrap();
 
@@ -42,5 +52,3 @@ async fn main() {
     println!("logs: {:?}", logs.data);
 }
 ```
-
-### more examples in `examples/`

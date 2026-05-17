@@ -7,7 +7,6 @@ use std::result::Result as StdResult;
 use std::str::FromStr;
 
 #[derive(
-    Debug,
     Default,
     Clone,
     Copy,
@@ -82,6 +81,12 @@ impl Hex for UInt {
     }
 }
 
+impl fmt::Debug for UInt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "UInt({})", self.encode_hex())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::UInt;
@@ -96,10 +101,7 @@ mod tests {
 
     #[test]
     fn test_serde_max() {
-        assert_tokens(
-            &UInt::from(std::u64::MAX),
-            &[Token::Str("0xffffffffffffffff")],
-        );
+        assert_tokens(&UInt::from(u64::MAX), &[Token::Str("0xffffffffffffffff")]);
     }
 
     #[test]

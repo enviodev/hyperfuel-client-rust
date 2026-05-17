@@ -1,171 +1,98 @@
-use std::{collections::BTreeSet, time::Duration};
+#![deny(missing_docs)]
+//! HyperFuel client library for querying a HyperFuel (HyperSync) server.
+
+use std::{collections::BTreeSet, num::NonZeroU64, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Context, Result};
-use arrow2::{array::Array, chunk::Chunk};
-
-use filter::filter_out_unselected_data;
-use from_arrow::{receipts_from_arrow_data, typed_data_from_arrow_data};
 use hyperfuel_format::Hash;
-use hyperfuel_net_types::{
-    hyperfuel_net_types_capnp, ArchiveHeight, FieldSelection, Query, ReceiptSelection,
-};
+use hyperfuel_net_types::{ArchiveHeight, ChainId, FieldSelection, Query, ReceiptSelection};
+use polars_arrow::{array::Array, record_batch::RecordBatchT as Chunk};
 use reqwest::Method;
 
-pub mod config;
-mod filter;
+mod column_mapping;
+mod config;
 mod from_arrow;
 mod parquet_out;
-mod transport_format;
+mod parse_response;
+mod rayon_async;
+mod stream;
 mod types;
+mod util;
 
-pub use config::Config;
-pub use transport_format::{ArrowIpc, TransportFormat};
+pub use from_arrow::FromArrow;
+pub use hyperfuel_format as format;
+pub use hyperfuel_net_types as net_types;
+pub use hyperfuel_schema as schema;
+
+use parse_response::parse_query_response;
+use tokio::sync::mpsc;
+use url::Url;
+
+pub use column_mapping::{ColumnMapping, DataType};
+pub use config::HexOutput;
+pub use config::{ClientConfig, StreamConfig};
 pub use types::{
-    ArrowBatch, LogContext, LogResponse, QueryResponse, QueryResponseData, QueryResponseDataTyped,
-    QueryResponseTyped,
+    ArrowBatch, ArrowResponse, ArrowResponseData, LogContext, LogResponse, QueryResponse,
 };
 
+/// ArrowChunk
 pub type ArrowChunk = Chunk<Box<dyn Array>>;
 
+/// Internal client to handle http requests and retries.
+#[derive(Clone, Debug)]
 pub struct Client {
+    /// Initialized reqwest instance for client url.
     http_client: reqwest::Client,
-    cfg: Config,
+    /// HyperFuel server URL.
+    url: Url,
+    /// HyperFuel server bearer token.
+    bearer_token: Option<String>,
+    /// Number of retries to attempt before returning error.
+    max_num_retries: usize,
+    /// Milliseconds that would be used for retry backoff increasing.
+    retry_backoff_ms: u64,
+    /// Initial wait time for request backoff.
+    retry_base_ms: u64,
+    /// Ceiling time for request backoff.
+    retry_ceiling_ms: u64,
 }
 
 impl Client {
-    /// Create a new client with given config
-    pub fn new(cfg: Config) -> Result<Self> {
+    /// Creates a new client with the given configuration.
+    pub fn new(cfg: ClientConfig) -> Result<Self> {
+        let timeout = cfg
+            .http_req_timeout_millis
+            .unwrap_or(NonZeroU64::new(30_000).unwrap());
+
         let http_client = reqwest::Client::builder()
             .no_gzip()
             .http1_only()
-            .timeout(Duration::from_millis(cfg.http_req_timeout_millis.get()))
+            .timeout(Duration::from_millis(timeout.get()))
             .tcp_keepalive(Duration::from_secs(7200))
-            .connect_timeout(Duration::from_millis(cfg.http_req_timeout_millis.get()))
+            .connect_timeout(Duration::from_millis(timeout.get()))
             .build()
             .unwrap();
 
-        Ok(Self { http_client, cfg })
-    }
-
-    /// Create a parquet file by executing a query.
-    ///
-    /// If the query can't be finished in a single request, this function will
-    /// keep on making requests using the pagination mechanism (next_block) until
-    /// it reaches the end. It will stream data into the parquet file as it comes from
-    /// the server.
-    ///
-    /// Path should point to a folder that will contain the parquet files in the end.
-    pub async fn create_parquet_folder(&self, query: Query, path: String) -> Result<()> {
-        parquet_out::create_parquet_folder(self, query, path).await
-    }
-
-    /// Get the height of the source hypersync instance
-    pub async fn get_height(&self) -> Result<u64> {
-        let mut url = self.cfg.url.clone();
-        let mut segments = url.path_segments_mut().ok().context("get path segments")?;
-        segments.push("height");
-        std::mem::drop(segments);
-        let mut req = self.http_client.request(Method::GET, url);
-
-        if let Some(bearer_token) = &self.cfg.bearer_token {
-            req = req.bearer_auth(bearer_token);
-        }
-
-        let res = req.send().await.context("execute http req")?;
-
-        let status = res.status();
-        if !status.is_success() {
-            return Err(anyhow!("http response status code {}", status));
-        }
-
-        let height: ArchiveHeight = res.json().await.context("read response body json")?;
-
-        Ok(height.height.unwrap_or(0))
-    }
-
-    /// Get the height of the source hypersync instance
-    /// Internally calls get_height.
-    /// On an error from the source hypersync instance, sleeps for
-    /// 1 second (increasing by 1 each failure up to max of 5 seconds)
-    /// and retries query until success.
-    pub async fn get_height_with_retry(&self) -> Result<u64> {
-        let mut base = 1;
-
-        loop {
-            match self.get_height().await {
-                Ok(res) => return Ok(res),
-                Err(e) => {
-                    log::error!("failed to send request to hyperfuel server: {:?}", e);
-                }
-            }
-
-            let secs = Duration::from_secs(base);
-            let millis = Duration::from_millis(fastrange_rs::fastrange_64(rand::random(), 1000));
-
-            tokio::time::sleep(secs + millis).await;
-
-            base = std::cmp::min(base + 1, 5);
-        }
-    }
-
-    /// Send a query request to the source hypersync instance.
-    ///
-    /// Returns a query response which contains typed data.
-    ///
-    /// NOTE: this query returns loads all transactions that your match your receipt, input, or output selections
-    /// and applies the field selection to all these loaded transactions.  So your query will return the data you
-    /// want plus additional data from the loaded transactions.  This functionality is in case you want to associate
-    /// receipts, inputs, or outputs with eachother.
-    pub async fn get_data(&self, query: &Query) -> Result<QueryResponseTyped> {
-        let res = self.get_arrow_data(query).await.context("get arrow data")?;
-
-        let typed_data =
-            typed_data_from_arrow_data(res.data).context("convert arrow data to typed response")?;
-
-        Ok(QueryResponseTyped {
-            archive_height: res.archive_height,
-            next_block: res.next_block,
-            total_execution_time: res.total_execution_time,
-            data: typed_data,
+        Ok(Self {
+            http_client,
+            url: cfg
+                .url
+                .unwrap_or("https://fuel.hypersync.xyz".parse().context("parse url")?),
+            bearer_token: cfg.bearer_token,
+            max_num_retries: cfg.max_num_retries.unwrap_or(12),
+            retry_backoff_ms: cfg.retry_backoff_ms.unwrap_or(500),
+            retry_base_ms: cfg.retry_base_ms.unwrap_or(200),
+            retry_ceiling_ms: cfg.retry_ceiling_ms.unwrap_or(5_000),
         })
     }
 
-    /// Send a query request to the source hypersync instance.
+    /// Returns Log and LogData receipts emitted by any of the given contracts in the block range.
     ///
-    /// Returns a query response that which contains structured data that doesn't include any inputs, outputs,
-    /// and receipts that don't exactly match the query's input, outout, or receipt selection.
-    pub async fn get_selected_data(&self, query: &Query) -> Result<QueryResponseTyped> {
-        let query = add_selections_to_field_selection(&mut query.clone());
-
-        let res = self
-            .get_arrow_data(&query)
-            .await
-            .context("get arrow data")?;
-
-        let filtered_data =
-            filter_out_unselected_data(res.data, &query).context("filter out unselected data")?;
-
-        let typed_data = typed_data_from_arrow_data(filtered_data)
-            .context("convert arrow data to typed response")?;
-
-        Ok(QueryResponseTyped {
-            archive_height: res.archive_height,
-            next_block: res.next_block,
-            total_execution_time: res.total_execution_time,
-            data: typed_data,
-        })
-    }
-
-    /// Send a query request to the source hypersync instance.
+    /// If `to_block` is omitted, the query runs to the chain head. The response includes the fields
+    /// needed to decode Fuel Log / LogData receipts plus contextual columns. Receipts from failed
+    /// transactions are not included.
     ///
-    /// Returns all log and logdata receipts of logs emitted by any of the specified contracts
-    /// within the block range.
-    /// If no 'to_block' is specified, query will run to the head of the chain.
-    /// Returned data contains all the data needed to decode Fuel Log or LogData
-    /// receipts as well as some extra data for context.  This query doesn't return any logs that
-    /// were a part of a failed transaction.
-    ///
-    /// NOTE: this function is experimental and might be removed in future versions.
+    /// **Note:** experimental API; may change in future releases.
     pub async fn preset_query_get_logs<H: Into<Hash>>(
         &self,
         emitting_contracts: Vec<H>,
@@ -209,20 +136,13 @@ impl Client {
             ..Default::default()
         };
 
-        let res = self
-            .get_arrow_data(&query)
-            .await
-            .context("get arrow data")?;
-
-        let filtered_data = filter_out_unselected_data(res.data, &query)
-            .context("filter out unselected receipts")?;
-
-        let typed_receipts = receipts_from_arrow_data(&filtered_data.receipts)
-            .context("convert arrow data to receipt response")?;
-
-        let logs: Vec<LogContext> = typed_receipts
+        let res = self.get(&query).await.context("get data")?;
+        let logs: Vec<LogContext> = res
+            .data
+            .receipts
             .into_iter()
-            .map(|receipt| receipt.into())
+            .flatten()
+            .map(Into::into)
             .collect();
 
         Ok(LogResponse {
@@ -233,52 +153,207 @@ impl Client {
         })
     }
 
-    /// Send a query request to the source hypersync instance.
-    ///
-    /// Returns a query response that which contains arrow data that doesn't include any inputs, outputs,
-    /// and receipts that don't exactly match the query's input, outout, or receipt selection.
-    pub async fn get_selected_arrow_data(&self, query: &Query) -> Result<QueryResponse> {
-        let query = add_selections_to_field_selection(&mut query.clone());
-
-        let res = self
-            .get_arrow_data(&query)
+    /// Retrieves blocks, transactions, traces, and logs in Arrow format through a stream using
+    /// the provided query and stream configuration.
+    pub async fn collect_arrow(
+        self: Arc<Self>,
+        query: Query,
+        config: StreamConfig,
+    ) -> Result<ArrowResponse> {
+        let mut recv = stream::stream_arrow(self, query, config)
             .await
-            .context("get arrow data")?;
+            .context("start stream")?;
 
-        let filtered_data =
-            filter_out_unselected_data(res.data, &query).context("filter out unselected data")?;
+        let mut data = ArrowResponseData::default();
+        let mut archive_height = None;
+        let mut next_block = 0;
+        let mut total_execution_time = 0;
 
-        Ok(QueryResponse {
-            archive_height: res.archive_height,
-            next_block: res.next_block,
-            total_execution_time: res.total_execution_time,
-            data: filtered_data,
+        while let Some(res) = recv.recv().await {
+            let res = res.context("get response")?;
+
+            for batch in res.data.blocks {
+                data.blocks.push(batch);
+            }
+            for batch in res.data.transactions {
+                data.transactions.push(batch);
+            }
+            for batch in res.data.receipts {
+                data.receipts.push(batch);
+            }
+            for batch in res.data.inputs {
+                data.inputs.push(batch);
+            }
+            for batch in res.data.outputs {
+                data.outputs.push(batch);
+            }
+
+            archive_height = res.archive_height;
+            next_block = res.next_block;
+            total_execution_time += res.total_execution_time
+        }
+
+        Ok(ArrowResponse {
+            archive_height,
+            next_block,
+            total_execution_time,
+            data,
         })
     }
 
-    /// Send a query request to the source hypersync instance.
-    ///
-    /// Returns a query response which contains arrow data.
-    ///
-    /// NOTE: this query returns loads all transactions that your match your receipt, input, or output selections
-    /// and applies the field selection to all these loaded transactions.  So your query will return the data you
-    /// want plus additional data from the loaded transactions.  This functionality is in case you want to associate
-    /// receipts, inputs, or outputs with eachother.
-    pub async fn get_arrow_data(&self, query: &Query) -> Result<QueryResponse> {
-        let mut url = self.cfg.url.clone();
-        let mut segments = url.path_segments_mut().ok().context("get path segments")?;
-        segments.push("query");
-        segments.push(ArrowIpc::path());
-        std::mem::drop(segments);
-        let mut req = self.http_client.request(Method::POST, url);
+    /// Writes parquet file getting data through a stream using the provided path, query,
+    /// and stream configuration.
+    pub async fn collect_parquet(
+        self: Arc<Self>,
+        path: &str,
+        query: Query,
+        config: StreamConfig,
+    ) -> Result<()> {
+        parquet_out::collect_parquet(self, path, query, config).await
+    }
 
-        if let Some(bearer_token) = &self.cfg.bearer_token {
+    /// Internal implementation of getting chain_id from server
+    async fn get_chain_id_impl(&self) -> Result<u64> {
+        let mut url = self.url.clone();
+        let mut segments = url.path_segments_mut().ok().context("get path segments")?;
+        segments.push("chain_id");
+        std::mem::drop(segments);
+        let mut req = self.http_client.request(Method::GET, url);
+
+        if let Some(bearer_token) = &self.bearer_token {
             req = req.bearer_auth(bearer_token);
         }
 
-        log::trace!("sending req to hyperfuel");
+        let res = req.send().await.context("execute http req")?;
+
+        let status = res.status();
+        if !status.is_success() {
+            return Err(anyhow!("http response status code {}", status));
+        }
+
+        let chain_id: ChainId = res.json().await.context("read response body json")?;
+
+        Ok(chain_id.chain_id)
+    }
+
+    /// Internal implementation of getting height from server
+    async fn get_height_impl(&self, http_timeout_override: Option<Duration>) -> Result<u64> {
+        let mut url = self.url.clone();
+        let mut segments = url.path_segments_mut().ok().context("get path segments")?;
+        segments.push("height");
+        std::mem::drop(segments);
+        let mut req = self.http_client.request(Method::GET, url);
+
+        if let Some(bearer_token) = &self.bearer_token {
+            req = req.bearer_auth(bearer_token);
+        }
+
+        if let Some(http_timeout_override) = http_timeout_override {
+            req = req.timeout(http_timeout_override);
+        }
+
+        let res = req.send().await.context("execute http req")?;
+
+        let status = res.status();
+        if !status.is_success() {
+            return Err(anyhow!("http response status code {}", status));
+        }
+
+        let height: ArchiveHeight = res.json().await.context("read response body json")?;
+
+        Ok(height.height.unwrap_or(0))
+    }
+
+    /// Get the chain_id from the server with retries.
+    pub async fn get_chain_id(&self) -> Result<u64> {
+        let mut base = self.retry_base_ms;
+
+        let mut err = anyhow!("");
+
+        for _ in 0..self.max_num_retries + 1 {
+            match self.get_chain_id_impl().await {
+                Ok(res) => return Ok(res),
+                Err(e) => {
+                    log::error!(
+                        "failed to get chain_id from server, retrying... The error was: {:?}",
+                        e
+                    );
+                    err = err.context(format!("{:?}", e));
+                }
+            }
+
+            let base_ms = Duration::from_millis(base);
+            let jitter = Duration::from_millis(fastrange_rs::fastrange_64(
+                rand::random(),
+                self.retry_backoff_ms,
+            ));
+
+            tokio::time::sleep(base_ms + jitter).await;
+
+            base = std::cmp::min(base + self.retry_backoff_ms, self.retry_ceiling_ms);
+        }
+
+        Err(err)
+    }
+
+    /// Get the height of from server with retries.
+    pub async fn get_height(&self) -> Result<u64> {
+        let mut base = self.retry_base_ms;
+
+        let mut err = anyhow!("");
+
+        for _ in 0..self.max_num_retries + 1 {
+            match self.get_height_impl(None).await {
+                Ok(res) => return Ok(res),
+                Err(e) => {
+                    log::error!(
+                        "failed to get height from server, retrying... The error was: {:?}",
+                        e
+                    );
+                    err = err.context(format!("{:?}", e));
+                }
+            }
+
+            let base_ms = Duration::from_millis(base);
+            let jitter = Duration::from_millis(fastrange_rs::fastrange_64(
+                rand::random(),
+                self.retry_backoff_ms,
+            ));
+
+            tokio::time::sleep(base_ms + jitter).await;
+
+            base = std::cmp::min(base + self.retry_backoff_ms, self.retry_ceiling_ms);
+        }
+
+        Err(err)
+    }
+
+    /// Get the height of the Client instance for health checks.
+    /// Doesn't do any retries and the `http_req_timeout` parameter will override the http timeout config set when creating the client.
+    pub async fn health_check(&self, http_req_timeout: Option<Duration>) -> Result<u64> {
+        self.get_height_impl(http_req_timeout).await
+    }
+
+    /// Executes query with retries and returns the response.
+    pub async fn get(&self, query: &Query) -> Result<QueryResponse> {
+        let arrow_response = self.get_arrow(query).await.context("get data")?;
+        Ok(QueryResponse::from(&arrow_response))
+    }
+
+    /// Executes query once and returns the result in (Arrow, size) format.
+    async fn get_arrow_impl(&self, query: &Query) -> Result<(ArrowResponse, u64)> {
+        let mut url = self.url.clone();
+        let mut segments = url.path_segments_mut().ok().context("get path segments")?;
+        segments.push("query");
+        segments.push("arrow-ipc");
+        std::mem::drop(segments);
+        let mut req = self.http_client.request(Method::POST, url);
+
+        if let Some(bearer_token) = &self.bearer_token {
+            req = req.bearer_auth(bearer_token);
+        }
+
         let res = req.json(&query).send().await.context("execute http req")?;
-        log::trace!("got req response");
 
         let status = res.status();
         if !status.is_success() {
@@ -291,196 +366,113 @@ impl Client {
             ));
         }
 
-        log::trace!("starting to get response body bytes");
-
         let bytes = res.bytes().await.context("read response body bytes")?;
 
-        log::trace!("starting to parse query response");
-
         let res = tokio::task::block_in_place(|| {
-            self.parse_query_response::<ArrowIpc>(&bytes)
-                .context("parse query response")
+            parse_query_response(&bytes).context("parse query response")
         })?;
 
-        log::trace!("got data from hyperfuel");
-
-        Ok(res)
+        Ok((res, bytes.len().try_into().unwrap()))
     }
 
-    /// Send a query request to the source hypersync instance.
-    /// Internally calls send.
-    /// On an error from the source hypersync instance, sleeps for
-    /// 1 second (increasing by 1 each failure up to max of 5 seconds)
-    /// and retries query until success.
-    ///
-    /// Returns a query response which contains arrow data.
-    ///
-    /// NOTE: this query returns loads all transactions that your match your receipt, input, or output selections
-    /// and applies the field selection to all these loaded transactions.  So your query will return the data you
-    /// want plus additional data from the loaded transactions.  This functionality is in case you want to associate
-    /// receipts, inputs, or outputs with eachother.
-    /// Format can be ArrowIpc.
-    pub async fn get_arrow_data_with_retry(&self, query: &Query) -> Result<QueryResponse> {
-        let mut base = 1;
+    /// Executes query with retries and returns the response in Arrow format.
+    pub async fn get_arrow(&self, query: &Query) -> Result<ArrowResponse> {
+        self.get_arrow_with_size(query).await.map(|res| res.0)
+    }
 
-        loop {
-            match self.get_arrow_data(query).await {
+    /// Internal implementation for get_arrow.
+    async fn get_arrow_with_size(&self, query: &Query) -> Result<(ArrowResponse, u64)> {
+        let mut base = self.retry_base_ms;
+
+        let mut err = anyhow!("");
+
+        for _ in 0..self.max_num_retries + 1 {
+            match self.get_arrow_impl(query).await {
                 Ok(res) => return Ok(res),
                 Err(e) => {
-                    log::error!("failed to send request to hyperfuel server: {:?}", e);
+                    log::error!(
+                        "failed to get arrow data from server, retrying... The error was: {:?}",
+                        e
+                    );
+                    err = err.context(format!("{:?}", e));
                 }
             }
 
-            let secs = Duration::from_secs(base);
-            let millis = Duration::from_millis(fastrange_rs::fastrange_64(rand::random(), 1000));
+            let base_ms = Duration::from_millis(base);
+            let jitter = Duration::from_millis(fastrange_rs::fastrange_64(
+                rand::random(),
+                self.retry_backoff_ms,
+            ));
 
-            tokio::time::sleep(secs + millis).await;
+            tokio::time::sleep(base_ms + jitter).await;
 
-            base = std::cmp::min(base + 1, 5);
+            base = std::cmp::min(base + self.retry_backoff_ms, self.retry_ceiling_ms);
         }
+
+        Err(err)
     }
 
-    fn parse_query_response<Format: TransportFormat>(&self, bytes: &[u8]) -> Result<QueryResponse> {
-        let mut opts = capnp::message::ReaderOptions::new();
-        opts.nesting_limit(i32::MAX).traversal_limit_in_words(None);
-        let message_reader =
-            capnp::serialize_packed::read_message(bytes, opts).context("create message reader")?;
+    /// Spawns task to execute query and return data via a channel in Arrow format.
+    pub async fn stream_arrow(
+        self: Arc<Self>,
+        query: Query,
+        config: StreamConfig,
+    ) -> Result<mpsc::Receiver<Result<ArrowResponse>>> {
+        stream::stream_arrow(self, query, config).await
+    }
 
-        let query_response = message_reader
-            .get_root::<hyperfuel_net_types_capnp::query_response::Reader>()
-            .context("get root")?;
-
-        let archive_height = match query_response.get_archive_height() {
-            -1 => None,
-            h => Some(
-                h.try_into()
-                    .context("invalid archive height returned from server")?,
-            ),
-        };
-
-        let data = query_response.get_data().context("read data")?;
-
-        let blocks = Format::read_chunks(data.get_blocks().context("get data")?)
-            .context("parse block data")?;
-        let transactions = Format::read_chunks(data.get_transactions().context("get data")?)
-            .context("parse tx data")?;
-        let receipts = Format::read_chunks(data.get_receipts().context("get data")?)
-            .context("parse receipt data")?;
-        let inputs = Format::read_chunks(data.get_inputs().context("get data")?)
-            .context("parse input data")?;
-        let outputs = Format::read_chunks(data.get_outputs().context("get data")?)
-            .context("parse output data")?;
-
-        Ok(QueryResponse {
-            archive_height,
-            next_block: query_response.get_next_block(),
-            total_execution_time: query_response.get_total_execution_time(),
-            data: QueryResponseData {
-                blocks,
-                transactions,
-                receipts,
-                inputs,
-                outputs,
-            },
-        })
+    /// Getter for url field.
+    pub fn url(&self) -> &Url {
+        &self.url
     }
 }
 
-// receipt, input, and output selections must have the associated query fields in
-// field_selection or else we can't do client-side filtering via comparison
-fn add_selections_to_field_selection(query: &mut Query) -> Query {
-    query.receipts.iter_mut().for_each(|selection| {
-        if !selection.root_contract_id.is_empty() {
-            query
-                .field_selection
-                .receipt
-                .insert("root_contract_id".into());
-        }
-        if !selection.to_address.is_empty() {
-            query.field_selection.receipt.insert("to_address".into());
-        }
-        if !selection.asset_id.is_empty() {
-            query.field_selection.receipt.insert("asset_id".into());
-        }
-        if !selection.receipt_type.is_empty() {
-            query.field_selection.receipt.insert("receipt_type".into());
-        }
-        if !selection.sender.is_empty() {
-            query.field_selection.receipt.insert("sender".into());
-        }
-        if !selection.recipient.is_empty() {
-            query.field_selection.receipt.insert("recipient".into());
-        }
-        if !selection.contract_id.is_empty() {
-            query.field_selection.receipt.insert("contract_id".into());
-        }
-        if !selection.ra.is_empty() {
-            query.field_selection.receipt.insert("ra".into());
-        }
-        if !selection.rb.is_empty() {
-            query.field_selection.receipt.insert("rb".into());
-        }
-        if !selection.rc.is_empty() {
-            query.field_selection.receipt.insert("rc".into());
-        }
-        if !selection.rd.is_empty() {
-            query.field_selection.receipt.insert("rd".into());
-        }
-        if !selection.tx_status.is_empty() {
-            query.field_selection.receipt.insert("tx_status".into());
-        }
-        if !selection.tx_type.is_empty() {
-            query.field_selection.receipt.insert("tx_type".into());
-        }
-    });
+#[allow(dead_code)]
+fn check_simple_stream_params(config: &StreamConfig) -> Result<()> {
+    if config.column_mapping.is_some() {
+        return Err(anyhow!("config.column_mapping can't be passed to single type function. User is expected to map values manually."));
+    }
 
-    query.inputs.iter_mut().for_each(|selection| {
-        if !selection.owner.is_empty() {
-            query.field_selection.input.insert("owner".into());
-        }
-        if !selection.asset_id.is_empty() {
-            query.field_selection.input.insert("asset_id".into());
-        }
-        if !selection.contract.is_empty() {
-            query.field_selection.input.insert("contract".into());
-        }
-        if !selection.sender.is_empty() {
-            query.field_selection.input.insert("sender".into());
-        }
-        if !selection.recipient.is_empty() {
-            query.field_selection.input.insert("recipient".into());
-        }
-        if !selection.input_type.is_empty() {
-            query.field_selection.input.insert("input_type".into());
-        }
-        if !selection.tx_status.is_empty() {
-            query.field_selection.input.insert("tx_status".into());
-        }
-        if !selection.tx_type.is_empty() {
-            query.field_selection.receipt.insert("tx_type".into());
-        }
-    });
+    Ok(())
+}
 
-    query.outputs.iter_mut().for_each(|selection| {
-        if !selection.to.is_empty() {
-            query.field_selection.output.insert("to".into());
-        }
-        if !selection.asset_id.is_empty() {
-            query.field_selection.output.insert("asset_id".into());
-        }
-        if !selection.contract.is_empty() {
-            query.field_selection.output.insert("contract".into());
-        }
-        if !selection.output_type.is_empty() {
-            query.field_selection.output.insert("output_type".into());
-        }
-        if !selection.tx_status.is_empty() {
-            query.field_selection.output.insert("tx_status".into());
-        }
-        if !selection.tx_type.is_empty() {
-            query.field_selection.receipt.insert("tx_type".into());
-        }
-    });
+#[allow(dead_code)]
+fn add_event_join_fields_to_selection(query: &mut Query) {
+    // Field lists for implementing event based API, these fields are used for joining
+    // so they should always be added to the field selection.
+    const BLOCK_JOIN_FIELDS: &[&str] = &["height"]; // Or is it "block_height"?
+    const TX_JOIN_FIELDS: &[&str] = &["id"];
+    const RECEIPT_JOIN_FIELDS: &[&str] = &["tx_id", "block_height"];
+    const INPUT_JOIN_FIELDS: &[&str] = &["tx_id", "block_height"];
+    const OUTPUT_JOIN_FIELDS: &[&str] = &["tx_id", "block_height"];
 
-    query.clone()
+    if !query.field_selection.block.is_empty() {
+        for field in BLOCK_JOIN_FIELDS.iter() {
+            query.field_selection.block.insert(field.to_string());
+        }
+    }
+
+    if !query.field_selection.transaction.is_empty() {
+        for field in TX_JOIN_FIELDS.iter() {
+            query.field_selection.transaction.insert(field.to_string());
+        }
+    }
+
+    if !query.field_selection.receipt.is_empty() {
+        for field in RECEIPT_JOIN_FIELDS.iter() {
+            query.field_selection.receipt.insert(field.to_string());
+        }
+    }
+
+    if !query.field_selection.input.is_empty() {
+        for field in INPUT_JOIN_FIELDS.iter() {
+            query.field_selection.input.insert(field.to_string());
+        }
+    }
+
+    if !query.field_selection.output.is_empty() {
+        for field in OUTPUT_JOIN_FIELDS.iter() {
+            query.field_selection.output.insert(field.to_string());
+        }
+    }
 }

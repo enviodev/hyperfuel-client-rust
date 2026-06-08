@@ -11,6 +11,3 @@ serde = { version = "1", features = ["derive"] }
 arrayvec = { version = "0.7", features = ["serde"] }
 
 hyperfuel-format = { path = "../hyperfuel-format", version = "4" }
-
-[build-dependencies]
-capnpc = "0.19"

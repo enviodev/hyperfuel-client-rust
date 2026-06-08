@@ -45,3 +45,45 @@ jobs:
       run: cargo fmt --check
     - name: Clippy
       run: cargo clippy -- -Dwarnings
+
+  # The capnp-generated code is committed rather than built from build.rs, so it
+  # can drift from the schema if someone edits the .capnp file without
+  # regenerating. Regenerate here and fail if the committed code is stale.
+  check_capnp_generated:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v2
+    - name: Install capnp schema compiler
+      run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get install -y capnproto libcapnp-dev
+    # The plugin version must match the `capnp` runtime dependency (0.19) so the
+    # regenerated code matches what the crate links against.
+    - name: Install capnpc-rust plugin
+      run: cargo install capnpc --version "^0.19"
+    - name: Regenerate capnp code
+      run: make -C hyperfuel-net-types generate_capnp_types
+    - name: Verify committed capnp code is up to date
+      run: |
+          git diff --exit-code -- hyperfuel-net-types/src/__generated__ \
+            || (echo "::error::Committed capnp code is out of date. Run 'make -C hyperfuel-net-types generate_capnp_types' and commit the result." && exit 1)
+
+  # Verify the publishable crates package and verify-build correctly. This builds
+  # against the versions on crates.io, which still need the capnp compiler until
+  # a pre-built hyperfuel-net-types is published, so keep capnproto installed here.
+  package:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v2
+    - name: Install capnp schema compiler
+      run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get install -y capnproto libcapnp-dev
+    - name: Verify publishable crates package correctly
+      run: |
+          cargo package -p hyperfuel-format
+          cargo package -p hyperfuel-schema
+          cargo package -p hyperfuel-net-types
+          cargo package -p hyperfuel-client

@@ -8,6 +8,10 @@ on:
     branches:
       - main
 
+# All jobs only read the repo (build/test/lint/package/codegen-check).
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -21,10 +25,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: Swatinem/rust-cache@v2
-    - name: Install Dependencies
-      run: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get install -y capnproto libcapnp-dev
     - name: Build
       run: cargo build
     - name: Test
@@ -35,10 +35,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: Swatinem/rust-cache@v2
-    - name: Install Dependencies
-      run: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get install -y capnproto libcapnp-dev
     - name: Build
       run: cargo build --release
     - name: Test
@@ -49,11 +45,45 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: Swatinem/rust-cache@v2
-    - name: Install Dependencies
-      run: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get install -y capnproto libcapnp-dev
     - name: Rustfmt
       run: cargo fmt --check
     - name: Clippy
       run: cargo clippy -- -Dwarnings
+
+  check_capnp_generated:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    # The capnpc plugin and the `capnp` runtime are released in lockstep, so
+    # the Dockerfile's pinned capnpc must match every `capnp` Cargo dependency.
+    - name: Check capnpc version matches the capnp dependency
+      run: |
+          expected=$(sed -nE 's/^ARG CAPNPC_VERSION=([0-9]+\.[0-9]+).*/\1/p' hyperfuel-net-types/capnp-codegen.Dockerfile)
+          status=0
+          for f in $(grep -rl -E '^capnp = "' --include=Cargo.toml .); do
+            ver=$(sed -nE 's/^capnp = "([0-9]+\.[0-9]+).*/\1/p' "$f")
+            if [ "$ver" != "$expected" ]; then
+              echo "::error file=$f::capnp = \"$ver\" does not match the pinned capnpc $expected in capnp-codegen.Dockerfile"
+              status=1
+            fi
+          done
+          [ "$status" -eq 0 ] && echo "capnp/capnpc versions aligned ($expected)"
+          exit $status
+    - name: Regenerate capnp code
+      run: make -C hyperfuel-net-types generate_capnp_types
+    - name: Verify committed capnp code is up to date
+      run: |
+          git diff --exit-code -- hyperfuel-net-types/src/__generated__ \
+            || (echo "::error::Committed capnp code is out of date. Run 'make -C hyperfuel-net-types generate_capnp_types' and commit the result." && exit 1)
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v2
+    - name: Verify publishable crates package correctly
+      run: |
+          cargo package -p hyperfuel-format
+          cargo package -p hyperfuel-schema
+          cargo package -p hyperfuel-net-types
+          cargo package -p hyperfuel-client

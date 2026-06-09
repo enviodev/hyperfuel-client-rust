@@ -1,6 +1,6 @@
 [package]
 name = "hyperfuel-client"
-version = "3.1.0"
+version = "3.2.0"
 edition = "2021"
 description = "client library for hyperfuel"
 license = "MPL-2.0"
@@ -20,7 +20,7 @@ polars-arrow = { version = "0.42", features = [
 ] }
 polars-parquet = { version = "0.42", features = ["compression", "async"] }
 serde_json = "1"
-capnp = "0.19"
+capnp = "0.23"
 serde = { version = "1", features = ["derive"] }
 futures = "0.3"
 arrayvec = { version = "0.7", features = ["serde"] }
@@ -44,7 +44,7 @@ ruint = "1"
 bincode = "1"
 nohash-hasher = "0.2.0"
 
-hyperfuel-net-types = { path = "../hyperfuel-net-types", version = "4" }
+hyperfuel-net-types = { path = "../hyperfuel-net-types", version = "5" }
 hyperfuel-format = { path = "../hyperfuel-format", version = "4" }
 hyperfuel-schema = { path = "../hyperfuel-schema", version = "4" }
 

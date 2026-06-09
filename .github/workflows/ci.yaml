@@ -86,6 +86,4 @@ jobs:
           cargo package -p hyperfuel-format
           cargo package -p hyperfuel-schema
           cargo package -p hyperfuel-net-types
-          # hyperfuel-client is omitted: it requires hyperfuel-net-types = "5",
-          # which cargo resolves against crates.io and isn't published yet. Add
-          # `cargo package -p hyperfuel-client` back once net-types 5.0.0 is released.
+          cargo package -p hyperfuel-client

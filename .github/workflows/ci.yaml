@@ -86,7 +86,6 @@ jobs:
           cargo package -p hyperfuel-format
           cargo package -p hyperfuel-schema
           cargo package -p hyperfuel-net-types
-          # --no-verify is temporary: a full verify-build would compile the
-          # currently published (build.rs-based) hyperfuel-net-types from
-          # crates.io. Drop it once a pre-built hyperfuel-net-types is released.
-          cargo package -p hyperfuel-client --no-verify
+          # hyperfuel-client is omitted: it requires hyperfuel-net-types = "5",
+          # which cargo resolves against crates.io and isn't published yet. Add
+          # `cargo package -p hyperfuel-client` back once net-types 5.0.0 is released.

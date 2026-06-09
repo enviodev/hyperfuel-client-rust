@@ -8,6 +8,10 @@ on:
     branches:
       - main
 
+# All jobs only read the repo (build/test/lint/package/codegen-check).
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -67,4 +71,7 @@ jobs:
           cargo package -p hyperfuel-format
           cargo package -p hyperfuel-schema
           cargo package -p hyperfuel-net-types
+          # --no-verify is temporary: a full verify-build would compile the
+          # currently published (build.rs-based) hyperfuel-net-types from
+          # crates.io. Drop it once a pre-built hyperfuel-net-types is released.
           cargo package -p hyperfuel-client --no-verify

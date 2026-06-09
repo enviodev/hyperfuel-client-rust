@@ -30,14 +30,14 @@ pub mod query_response_data {
     pub struct Reader<'a> {
         reader: ::capnp::private::layout::StructReader<'a>,
     }
-    impl<'a> ::core::marker::Copy for Reader<'a> {}
-    impl<'a> ::core::clone::Clone for Reader<'a> {
+    impl ::core::marker::Copy for Reader<'_> {}
+    impl ::core::clone::Clone for Reader<'_> {
         fn clone(&self) -> Self {
             *self
         }
     }
 
-    impl<'a> ::capnp::traits::HasTypeId for Reader<'a> {
+    impl ::capnp::traits::HasTypeId for Reader<'_> {
         const TYPE_ID: u64 = _private::TYPE_ID;
     }
     impl<'a> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a> {
@@ -59,7 +59,7 @@ pub mod query_response_data {
         }
     }
 
-    impl<'a> ::core::fmt::Debug for Reader<'a> {
+    impl ::core::fmt::Debug for Reader<'_> {
         fn fmt(
             &self,
             f: &mut ::core::fmt::Formatter<'_>,
@@ -161,14 +161,14 @@ pub mod query_response_data {
     pub struct Builder<'a> {
         builder: ::capnp::private::layout::StructBuilder<'a>,
     }
-    impl<'a> ::capnp::traits::HasStructSize for Builder<'a> {
+    impl ::capnp::traits::HasStructSize for Builder<'_> {
         const STRUCT_SIZE: ::capnp::private::layout::StructSize =
             ::capnp::private::layout::StructSize {
                 data: 0,
                 pointers: 5,
             };
     }
-    impl<'a> ::capnp::traits::HasTypeId for Builder<'a> {
+    impl ::capnp::traits::HasTypeId for Builder<'_> {
         const TYPE_ID: u64 = _private::TYPE_ID;
     }
     impl<'a> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a> {
@@ -218,7 +218,7 @@ pub mod query_response_data {
         }
     }
 
-    impl<'a> ::capnp::traits::SetterInput<Owned> for Reader<'a> {
+    impl ::capnp::traits::SetterInput<Owned> for Reader<'_> {
         fn set_pointer_builder(
             mut pointer: ::capnp::private::layout::PointerBuilder<'_>,
             value: Self,
@@ -460,14 +460,14 @@ pub mod query_response_data {
                 2 => <::capnp::data::Owned as ::capnp::introspect::Introspect>::introspect(),
                 3 => <::capnp::data::Owned as ::capnp::introspect::Introspect>::introspect(),
                 4 => <::capnp::data::Owned as ::capnp::introspect::Introspect>::introspect(),
-                _ => panic!("invalid field index {}", index),
+                _ => ::capnp::introspect::panic_invalid_field_index(index),
             }
         }
         pub fn get_annotation_types(
             child_index: Option<u16>,
             index: u32,
         ) -> ::capnp::introspect::Type {
-            panic!("invalid annotation indices ({:?}, {}) ", child_index, index)
+            ::capnp::introspect::panic_invalid_annotation_indices(child_index, index)
         }
         pub static RAW_SCHEMA: ::capnp::introspect::RawStructSchema =
             ::capnp::introspect::RawStructSchema {
@@ -511,14 +511,14 @@ pub mod query_response {
     pub struct Reader<'a> {
         reader: ::capnp::private::layout::StructReader<'a>,
     }
-    impl<'a> ::core::marker::Copy for Reader<'a> {}
-    impl<'a> ::core::clone::Clone for Reader<'a> {
+    impl ::core::marker::Copy for Reader<'_> {}
+    impl ::core::clone::Clone for Reader<'_> {
         fn clone(&self) -> Self {
             *self
         }
     }
 
-    impl<'a> ::capnp::traits::HasTypeId for Reader<'a> {
+    impl ::capnp::traits::HasTypeId for Reader<'_> {
         const TYPE_ID: u64 = _private::TYPE_ID;
     }
     impl<'a> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a> {
@@ -540,7 +540,7 @@ pub mod query_response {
         }
     }
 
-    impl<'a> ::core::fmt::Debug for Reader<'a> {
+    impl ::core::fmt::Debug for Reader<'_> {
         fn fmt(
             &self,
             f: &mut ::core::fmt::Formatter<'_>,
@@ -613,14 +613,14 @@ pub mod query_response {
     pub struct Builder<'a> {
         builder: ::capnp::private::layout::StructBuilder<'a>,
     }
-    impl<'a> ::capnp::traits::HasStructSize for Builder<'a> {
+    impl ::capnp::traits::HasStructSize for Builder<'_> {
         const STRUCT_SIZE: ::capnp::private::layout::StructSize =
             ::capnp::private::layout::StructSize {
                 data: 3,
                 pointers: 1,
             };
     }
-    impl<'a> ::capnp::traits::HasTypeId for Builder<'a> {
+    impl ::capnp::traits::HasTypeId for Builder<'_> {
         const TYPE_ID: u64 = _private::TYPE_ID;
     }
     impl<'a> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a> {
@@ -670,7 +670,7 @@ pub mod query_response {
         }
     }
 
-    impl<'a> ::capnp::traits::SetterInput<Owned> for Reader<'a> {
+    impl ::capnp::traits::SetterInput<Owned> for Reader<'_> {
         fn set_pointer_builder(
             mut pointer: ::capnp::private::layout::PointerBuilder<'_>,
             value: Self,
@@ -861,14 +861,14 @@ pub mod query_response {
         1 => <u64 as ::capnp::introspect::Introspect>::introspect(),
         2 => <u64 as ::capnp::introspect::Introspect>::introspect(),
         3 => <crate::hyperfuel_net_types_capnp::query_response_data::Owned as ::capnp::introspect::Introspect>::introspect(),
-        _ => panic!("invalid field index {}", index),
+        _ => ::capnp::introspect::panic_invalid_field_index(index),
       }
         }
         pub fn get_annotation_types(
             child_index: Option<u16>,
             index: u32,
         ) -> ::capnp::introspect::Type {
-            panic!("invalid annotation indices ({:?}, {}) ", child_index, index)
+            ::capnp::introspect::panic_invalid_annotation_indices(child_index, index)
         }
         pub static RAW_SCHEMA: ::capnp::introspect::RawStructSchema =
             ::capnp::introspect::RawStructSchema {

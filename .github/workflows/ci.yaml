@@ -50,13 +50,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - uses: Swatinem/rust-cache@v2
-    - name: Install capnp schema compiler
-      run: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get install -y capnproto libcapnp-dev
-    - name: Install capnpc-rust plugin
-      run: cargo install capnpc --version "=0.19.0"
     - name: Regenerate capnp code
       run: make -C hyperfuel-net-types generate_capnp_types
     - name: Verify committed capnp code is up to date

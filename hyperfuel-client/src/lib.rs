@@ -60,6 +60,20 @@ pub struct Client {
 impl Client {
     /// Creates a new client with the given configuration.
     pub fn new(cfg: ClientConfig) -> Result<Self> {
+        // hfcr stands for hyperfuel client rust
+        let user_agent = format!("hfcr/{}", env!("CARGO_PKG_VERSION"));
+        Self::new_internal(cfg, user_agent)
+    }
+
+    #[doc(hidden)]
+    pub fn new_with_agent(cfg: ClientConfig, user_agent: impl Into<String>) -> Result<Self> {
+        // Creates a new client with the given configuration and custom user agent.
+        // This is intended for use by language bindings (Python, Node.js) and HyperIndex.
+        Self::new_internal(cfg, user_agent.into())
+    }
+
+    /// Internal constructor that takes both config and user agent.
+    fn new_internal(cfg: ClientConfig, user_agent: String) -> Result<Self> {
         let timeout = cfg
             .http_req_timeout_millis
             .unwrap_or(NonZeroU64::new(30_000).unwrap());
@@ -67,6 +81,7 @@ impl Client {
         let http_client = reqwest::Client::builder()
             .no_gzip()
             .http1_only()
+            .user_agent(user_agent)
             .timeout(Duration::from_millis(timeout.get()))
             .tcp_keepalive(Duration::from_secs(7200))
             .connect_timeout(Duration::from_millis(timeout.get()))

@@ -5,6 +5,8 @@ use url::Url;
 async fn main() {
     let client_config = ClientConfig {
         url: Some(Url::parse("https://fuel.hypersync.xyz").unwrap()),
+        api_token: std::env::var("ENVIO_API_TOKEN")
+            .expect("ENVIO_API_TOKEN env var is required, get a token from https://envio.dev/app/api-tokens"),
         ..Default::default()
     };
     let client = Client::new(client_config).unwrap();

@@ -47,8 +47,8 @@ pub type ArrowChunk = Chunk<Box<dyn Array>>;
 struct HttpClientWrapper {
     /// Mutable state that needs to be refreshed periodically
     inner: std::sync::Mutex<HttpClientWrapperInner>,
-    /// HyperFuel server bearer token.
-    bearer_token: Option<String>,
+    /// HyperFuel server api token.
+    api_token: String,
     /// Standard timeout for http requests.
     timeout: Duration,
     /// Pools are never idle since polling often happens on the client
@@ -70,7 +70,7 @@ struct HttpClientWrapperInner {
 }
 
 impl HttpClientWrapper {
-    fn new(user_agent: String, bearer_token: Option<String>, timeout: Duration) -> Self {
+    fn new(user_agent: String, api_token: String, timeout: Duration) -> Self {
         let client = build_http_client(&user_agent, timeout);
 
         Self {
@@ -78,7 +78,7 @@ impl HttpClientWrapper {
                 client,
                 created_at: Instant::now(),
             }),
-            bearer_token,
+            api_token,
             timeout,
             max_connection_age: Duration::from_secs(60),
             user_agent,
@@ -101,13 +101,7 @@ impl HttpClientWrapper {
 
     fn request(&self, method: Method, url: Url) -> reqwest::RequestBuilder {
         let client = self.get_client();
-        let mut req = client.request(method, url);
-
-        if let Some(bearer_token) = &self.bearer_token {
-            req = req.bearer_auth(bearer_token);
-        }
-
-        req
+        client.request(method, url).bearer_auth(&self.api_token)
     }
 }
 
@@ -142,8 +136,11 @@ pub struct Client {
 
 impl Client {
     /// Creates a new client with the given configuration.
+    ///
+    /// Configuration must include the `api_token` field.
     pub fn new(cfg: ClientConfig) -> Result<Self> {
         // hfcr stands for hyperfuel client rust
+        cfg.validate().context("invalid ClientConfig")?;
         let user_agent = format!("hfcr/{}", env!("CARGO_PKG_VERSION"));
         Self::new_internal(cfg, user_agent)
     }
@@ -163,7 +160,7 @@ impl Client {
 
         let http_client = Arc::new(HttpClientWrapper::new(
             user_agent,
-            cfg.bearer_token,
+            cfg.api_token,
             Duration::from_millis(timeout.get()),
         ));
 

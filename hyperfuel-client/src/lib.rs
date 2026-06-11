@@ -1,7 +1,12 @@
 #![deny(missing_docs)]
 //! HyperFuel client library for querying a HyperFuel (HyperSync) server.
 
-use std::{collections::BTreeSet, num::NonZeroU64, sync::Arc, time::Duration};
+use std::{
+    collections::BTreeSet,
+    num::NonZeroU64,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use anyhow::{anyhow, Context, Result};
 use hyperfuel_format::Hash;
@@ -38,15 +43,87 @@ pub use types::{
 /// ArrowChunk
 pub type ArrowChunk = Chunk<Box<dyn Array>>;
 
+#[derive(Debug)]
+struct HttpClientWrapper {
+    /// Mutable state that needs to be refreshed periodically
+    inner: std::sync::Mutex<HttpClientWrapperInner>,
+    /// HyperFuel server api token.
+    api_token: String,
+    /// Standard timeout for http requests.
+    timeout: Duration,
+    /// Pools are never idle since polling often happens on the client
+    /// so connections never timeout and dns lookups never happen again
+    /// this is problematic if the underlying ip address changes during
+    /// failovers on hyperfuel. Since reqwest doesn't implement this we
+    /// simply recreate the client every time
+    max_connection_age: Duration,
+    /// For refreshing the client
+    user_agent: String,
+}
+
+#[derive(Debug)]
+struct HttpClientWrapperInner {
+    /// Initialized reqwest instance for client url.
+    client: reqwest::Client,
+    /// Timestamp when the client was created
+    created_at: Instant,
+}
+
+impl HttpClientWrapper {
+    fn new(user_agent: String, api_token: String, timeout: Duration) -> Self {
+        let client = build_http_client(&user_agent, timeout);
+
+        Self {
+            inner: std::sync::Mutex::new(HttpClientWrapperInner {
+                client,
+                created_at: Instant::now(),
+            }),
+            api_token,
+            timeout,
+            max_connection_age: Duration::from_secs(60),
+            user_agent,
+        }
+    }
+
+    fn get_client(&self) -> reqwest::Client {
+        let mut inner = self.inner.lock().expect("HttpClientWrapper mutex poisoned");
+
+        // Check if client needs refresh due to age
+        if inner.created_at.elapsed() > self.max_connection_age {
+            // Recreate client to force new DNS lookup for failover scenarios
+            inner.client = build_http_client(&self.user_agent, self.timeout);
+            inner.created_at = Instant::now();
+        }
+
+        // Clone is cheap for reqwest::Client (it's Arc-wrapped internally)
+        inner.client.clone()
+    }
+
+    fn request(&self, method: Method, url: Url) -> reqwest::RequestBuilder {
+        let client = self.get_client();
+        client.request(method, url).bearer_auth(&self.api_token)
+    }
+}
+
+fn build_http_client(user_agent: &str, timeout: Duration) -> reqwest::Client {
+    reqwest::Client::builder()
+        .no_gzip()
+        .http1_only()
+        .user_agent(user_agent)
+        .timeout(timeout)
+        .tcp_keepalive(Duration::from_secs(7200))
+        .connect_timeout(timeout)
+        .build()
+        .unwrap()
+}
+
 /// Internal client to handle http requests and retries.
 #[derive(Clone, Debug)]
 pub struct Client {
-    /// Initialized reqwest instance for client url.
-    http_client: reqwest::Client,
+    /// Http client wrapper that refreshes the underlying reqwest instance periodically.
+    http_client: Arc<HttpClientWrapper>,
     /// HyperFuel server URL.
     url: Url,
-    /// HyperFuel server bearer token.
-    bearer_token: Option<String>,
     /// Number of retries to attempt before returning error.
     max_num_retries: usize,
     /// Milliseconds that would be used for retry backoff increasing.
@@ -59,26 +136,39 @@ pub struct Client {
 
 impl Client {
     /// Creates a new client with the given configuration.
+    ///
+    /// Configuration must include the `api_token` field.
     pub fn new(cfg: ClientConfig) -> Result<Self> {
+        // hfcr stands for hyperfuel client rust
+        cfg.validate().context("invalid ClientConfig")?;
+        let user_agent = format!("hfcr/{}", env!("CARGO_PKG_VERSION"));
+        Self::new_internal(cfg, user_agent)
+    }
+
+    #[doc(hidden)]
+    pub fn new_with_agent(cfg: ClientConfig, user_agent: impl Into<String>) -> Result<Self> {
+        // Creates a new client with the given configuration and custom user agent.
+        // This is intended for use by language bindings (Python, Node.js) and HyperIndex.
+        Self::new_internal(cfg, user_agent.into())
+    }
+
+    /// Internal constructor that takes both config and user agent.
+    fn new_internal(cfg: ClientConfig, user_agent: String) -> Result<Self> {
         let timeout = cfg
             .http_req_timeout_millis
             .unwrap_or(NonZeroU64::new(30_000).unwrap());
 
-        let http_client = reqwest::Client::builder()
-            .no_gzip()
-            .http1_only()
-            .timeout(Duration::from_millis(timeout.get()))
-            .tcp_keepalive(Duration::from_secs(7200))
-            .connect_timeout(Duration::from_millis(timeout.get()))
-            .build()
-            .unwrap();
+        let http_client = Arc::new(HttpClientWrapper::new(
+            user_agent,
+            cfg.api_token,
+            Duration::from_millis(timeout.get()),
+        ));
 
         Ok(Self {
             http_client,
             url: cfg
                 .url
                 .unwrap_or("https://fuel.hypersync.xyz".parse().context("parse url")?),
-            bearer_token: cfg.bearer_token,
             max_num_retries: cfg.max_num_retries.unwrap_or(12),
             retry_backoff_ms: cfg.retry_backoff_ms.unwrap_or(500),
             retry_base_ms: cfg.retry_base_ms.unwrap_or(200),
@@ -218,11 +308,7 @@ impl Client {
         let mut segments = url.path_segments_mut().ok().context("get path segments")?;
         segments.push("chain_id");
         std::mem::drop(segments);
-        let mut req = self.http_client.request(Method::GET, url);
-
-        if let Some(bearer_token) = &self.bearer_token {
-            req = req.bearer_auth(bearer_token);
-        }
+        let req = self.http_client.request(Method::GET, url);
 
         let res = req.send().await.context("execute http req")?;
 
@@ -243,10 +329,6 @@ impl Client {
         segments.push("height");
         std::mem::drop(segments);
         let mut req = self.http_client.request(Method::GET, url);
-
-        if let Some(bearer_token) = &self.bearer_token {
-            req = req.bearer_auth(bearer_token);
-        }
 
         if let Some(http_timeout_override) = http_timeout_override {
             req = req.timeout(http_timeout_override);
@@ -347,11 +429,7 @@ impl Client {
         segments.push("query");
         segments.push("arrow-ipc");
         std::mem::drop(segments);
-        let mut req = self.http_client.request(Method::POST, url);
-
-        if let Some(bearer_token) = &self.bearer_token {
-            req = req.bearer_auth(bearer_token);
-        }
+        let req = self.http_client.request(Method::POST, url);
 
         let res = req.json(&query).send().await.context("execute http req")?;
 

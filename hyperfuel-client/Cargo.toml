@@ -1,6 +1,6 @@
 [package]
 name = "hyperfuel-client"
-version = "3.2.0"
+version = "4.0.0"
 edition = "2021"
 description = "client library for hyperfuel"
 license = "MPL-2.0"
@@ -43,6 +43,7 @@ faster-hex = "0.9"
 ruint = "1"
 bincode = "1"
 nohash-hasher = "0.2.0"
+uuid = { version = "1", features = ["v4"] }
 
 hyperfuel-net-types = { path = "../hyperfuel-net-types", version = "5" }
 hyperfuel-format = { path = "../hyperfuel-format", version = "4" }
@@ -56,6 +57,5 @@ features = ["json", "rustls-tls"]
 [dev-dependencies]
 maplit = "1"
 hex-literal = "0.4"
-uuid = { version = "1", features = ["v4"] }
 env_logger = "0.11"
 alloy-primitives="0.8"

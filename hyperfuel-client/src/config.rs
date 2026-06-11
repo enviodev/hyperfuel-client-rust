@@ -1,3 +1,4 @@
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU64;
 use url::Url;
@@ -9,8 +10,9 @@ use crate::ColumnMapping;
 pub struct ClientConfig {
     /// HyperFuel server URL.
     pub url: Option<Url>,
-    /// HyperFuel server bearer token.
-    pub bearer_token: Option<String>,
+    /// HyperFuel server api token.
+    #[serde(default)]
+    pub api_token: String,
     /// Milliseconds to wait for a response before timing out.
     pub http_req_timeout_millis: Option<NonZeroU64>,
     /// Number of retries to attempt before returning error.
@@ -21,6 +23,21 @@ pub struct ClientConfig {
     pub retry_base_ms: Option<u64>,
     /// Ceiling time for request backoff.
     pub retry_ceiling_ms: Option<u64>,
+}
+
+impl ClientConfig {
+    /// Validates the config
+    pub fn validate(&self) -> Result<()> {
+        if self.api_token.is_empty() {
+            anyhow::bail!("api_token is required - get one from https://envio.dev/app/api-tokens");
+        }
+        // validate that api token is a uuid
+        if uuid::Uuid::parse_str(self.api_token.as_str()).is_err() {
+            anyhow::bail!("api_token is malformed - make sure its a token from https://envio.dev/app/api-tokens");
+        }
+
+        Ok(())
+    }
 }
 
 /// Config for HyperFuel streaming.
